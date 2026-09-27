@@ -1,0 +1,8 @@
+# Local development: run from backend/ with ./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
+spring:
+  datasource:
+    url: jdbc:sqlite:${DATABASE_PATH:../data/chess.db}
+
+logging:
+  level:
+    com.example.chess: DEBUG

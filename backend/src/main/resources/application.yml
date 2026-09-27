@@ -1,0 +1,52 @@
+spring:
+  application:
+    name: chess
+  datasource:
+    url: jdbc:sqlite:${DATABASE_PATH:./data/chess.db}
+    driver-class-name: org.sqlite.JDBC
+    hikari:
+      # SQLite allows a single writer; one connection avoids SQLITE_BUSY under concurrent requests.
+      maximum-pool-size: 1
+      data-source-properties:
+        journal_mode: WAL
+        busy_timeout: 5000
+        foreign_keys: true
+  jpa:
+    database-platform: org.hibernate.community.dialect.SQLiteDialect
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+  sql:
+    init:
+      mode: always
+
+server:
+  port: ${SERVER_PORT:8080}
+  error:
+    include-stacktrace: never
+    include-message: never
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+chess:
+  engine:
+    # Local Stockfish binary. When empty, connect to host:port (the Docker Stockfish service).
+    path: ${STOCKFISH_PATH:}
+    host: ${STOCKFISH_HOST:localhost}
+    port: ${STOCKFISH_PORT:4000}
+    move-depth: ${STOCKFISH_MOVE_DEPTH:12}
+    analysis-depth: ${STOCKFISH_ANALYSIS_DEPTH:18}
+    # 0 (weakest) to 20 (full strength); applies to the computer's moves, not to analysis.
+    skill-level: ${STOCKFISH_SKILL_LEVEL:20}
+    timeout: ${STOCKFISH_TIMEOUT:30s}
+  ai:
+    laya:
+      base-url: ${LAYA_BASE_URL:http://localhost:8000}
+      model: ${LAYA_MODEL:english}
+      api-key: ${LAYA_API_KEY:}
+      timeout: ${LAYA_TIMEOUT:120s}
+      min-confidence: ${LAYA_MIN_CONFIDENCE:0.4}
