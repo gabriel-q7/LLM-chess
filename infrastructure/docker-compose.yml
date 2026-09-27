@@ -1,0 +1,82 @@
+# AI Chess development environment.
+#
+#   docker compose -f infrastructure/docker-compose.yml up --build
+#
+# Open http://localhost:4200. The first start builds Laya from source and downloads its
+# English checkpoint (several minutes, ~1.5 GB); later starts reuse the cached image and weights.
+name: chess-ai
+
+services:
+  frontend:
+    build: ../frontend
+    environment:
+      BACKEND_URL: http://backend:8080
+    ports:
+      - "${FRONTEND_PORT:-4200}:4200"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  backend:
+    build: ../backend
+    # Write the SQLite file as the host user so data/chess.db stays editable outside Docker.
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
+    environment:
+      DATABASE_PATH: /app/data/chess.db
+      STOCKFISH_HOST: stockfish
+      STOCKFISH_PORT: "4000"
+      STOCKFISH_MOVE_DEPTH: "${STOCKFISH_MOVE_DEPTH:-12}"
+      STOCKFISH_ANALYSIS_DEPTH: "${STOCKFISH_ANALYSIS_DEPTH:-18}"
+      STOCKFISH_SKILL_LEVEL: "${STOCKFISH_SKILL_LEVEL:-20}"
+      LAYA_BASE_URL: http://laya:8000
+      LAYA_MODEL: "${LAYA_MODEL:-english}"
+      LAYA_API_KEY: "${LAYA_API_KEY:-}"
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+    volumes:
+      - ../data:/app/data
+    depends_on:
+      stockfish:
+        condition: service_healthy
+      # The game works without Laya; only analysis and chat need it.
+      laya:
+        condition: service_started
+    restart: unless-stopped
+
+  stockfish:
+    build: ./stockfish
+    restart: unless-stopped
+
+  laya:
+    # Laya publishes no image; build its official Dockerfile from a pinned release.
+    build:
+      context: https://github.com/NandhaKishorM/laya.git#v0.3.9
+      args:
+        TORCH_INDEX: "${LAYA_TORCH_INDEX:-cpu}"
+        TORCH_VERSION: "${LAYA_TORCH_VERSION:-2.14.0}"
+    image: chess-ai-laya:0.3.9
+    command: ["laya-serve"]
+    environment:
+      LAYA_HOST: 0.0.0.0
+      LAYA_PORT: "8000"
+      LAYA_DEVICE: "${LAYA_DEVICE:-cpu}"
+      # Load the checkpoint at start-up so the first question does not wait for it.
+      LAYA_PRELOAD: "1"
+      LAYA_MODELS: "${LAYA_MODELS:-english}"
+      LAYA_THREADS: "${LAYA_THREADS:-4}"
+      OMP_NUM_THREADS: "${LAYA_THREADS:-4}"
+      LAYA_API_KEY: "${LAYA_API_KEY:-}"
+      HF_HUB_OFFLINE: "${HF_HUB_OFFLINE:-0}"
+    volumes:
+      - laya-model-cache:/home/laya/.cache/huggingface
+    init: true
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10m
+
+volumes:
+  laya-model-cache:
