@@ -1,0 +1,86 @@
+<section class="space-y-3" aria-labelledby="analysis-heading">
+  <div class="flex items-center justify-between gap-2">
+    <h2 id="analysis-heading" class="text-sm font-semibold tracking-wide text-neutral-500 uppercase dark:text-neutral-400">
+      AI Analysis
+    </h2>
+    <button
+      type="button"
+      class="rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
+      [disabled]="analyzing()"
+      (click)="analyze()"
+      data-testid="analyze"
+    >
+      {{ analyzing() ? 'Analyzing…' : 'Explain position' }}
+    </button>
+  </div>
+
+  @if (analysisError(); as error) {
+    <p class="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300" role="alert">{{ error }}</p>
+  }
+
+  @if (analysis(); as a) {
+    <div class="space-y-2 rounded-lg bg-neutral-50 p-3 dark:bg-neutral-800/60" data-testid="analysis">
+      <dl class="grid grid-cols-3 gap-2 text-center">
+        <div>
+          <dt class="text-xs text-neutral-500 dark:text-neutral-400">Best move</dt>
+          <dd class="font-mono text-base font-semibold">{{ a.bestMove ?? '—' }}</dd>
+        </div>
+        <div>
+          <dt class="text-xs text-neutral-500 dark:text-neutral-400">Evaluation</dt>
+          <dd class="font-mono text-base font-semibold">{{ formatEvaluation(a.evaluation, a.mateIn) }}</dd>
+        </div>
+        <div>
+          <dt class="text-xs text-neutral-500 dark:text-neutral-400">Depth</dt>
+          <dd class="font-mono text-base font-semibold">{{ a.depth }}</dd>
+        </div>
+      </dl>
+      <p class="text-sm leading-relaxed text-neutral-700 dark:text-neutral-200">{{ a.explanation }}</p>
+    </div>
+  }
+</section>
+
+<section class="mt-6 space-y-3" aria-labelledby="chat-heading">
+  <h2 id="chat-heading" class="text-sm font-semibold tracking-wide text-neutral-500 uppercase dark:text-neutral-400">Ask AI</h2>
+
+  @if (entries().length) {
+    <ol class="max-h-72 space-y-3 overflow-y-auto pr-1" data-testid="chat-log">
+      @for (entry of entries(); track $index) {
+        <li class="space-y-1">
+          <p class="ml-8 rounded-lg bg-sky-600 px-3 py-2 text-sm text-white">{{ entry.question }}</p>
+          @if (entry.answer) {
+            <p class="mr-8 rounded-lg bg-neutral-100 px-3 py-2 text-sm text-neutral-800 dark:bg-neutral-800 dark:text-neutral-100">
+              {{ entry.answer }}
+            </p>
+          } @else if (entry.error) {
+            <p class="mr-8 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950 dark:text-red-300" role="alert">
+              {{ entry.error }}
+            </p>
+          } @else {
+            <p class="mr-8 px-3 py-2 text-sm text-neutral-500 italic">Thinking…</p>
+          }
+        </li>
+      }
+    </ol>
+  }
+
+  <form class="flex gap-2" (ngSubmit)="ask()">
+    <label for="question" class="sr-only">Question for the AI</label>
+    <input
+      id="question"
+      name="question"
+      type="text"
+      maxlength="500"
+      autocomplete="off"
+      placeholder="Why did you play that move?"
+      class="min-w-0 flex-1 rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-sky-500 focus:ring-2 focus:ring-sky-500/30 focus:outline-none dark:border-neutral-600 dark:bg-neutral-900"
+      [(ngModel)]="question"
+    />
+    <button
+      type="submit"
+      class="rounded-md bg-sky-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-50"
+      [disabled]="asking() || !question.trim()"
+    >
+      Ask
+    </button>
+  </form>
+</section>

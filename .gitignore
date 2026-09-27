@@ -1,0 +1,12 @@
+# SQLite database (created at runtime)
+data/*.db
+data/*.db-shm
+data/*.db-wal
+
+# Editors / OS
+.idea/
+*.iml
+.DS_Store
+
+# Local environment overrides
+.env

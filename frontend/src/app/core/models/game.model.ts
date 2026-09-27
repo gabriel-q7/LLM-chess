@@ -1,0 +1,25 @@
+import { LegalMove, Move } from './move.model';
+
+export type Color = 'WHITE' | 'BLACK';
+
+export type GameStatus = 'PLAYING' | 'CHECKMATE' | 'STALEMATE' | 'DRAW';
+
+export type DrawReason = 'STALEMATE' | 'REPETITION' | 'INSUFFICIENT_MATERIAL' | 'FIFTY_MOVE_RULE';
+
+export interface Game {
+  id: string;
+  fen: string;
+  status: GameStatus;
+  turn: Color;
+  playerColor: Color;
+  check: boolean;
+  winner: Color | null;
+  drawReason: DrawReason | null;
+  moves: Move[];
+  /** The player's legal moves, computed by the backend. Empty when it is not the player's turn. */
+  legalMoves: LegalMove[];
+}
+
+export interface CreateGameRequest {
+  playerColor: Color;
+}
