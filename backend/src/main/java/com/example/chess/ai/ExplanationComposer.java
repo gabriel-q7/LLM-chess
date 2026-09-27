@@ -20,9 +20,11 @@ public class ExplanationComposer {
         }
         StringBuilder text = new StringBuilder();
         if (facts.lastMove() != null) {
-            text.append("After ").append(facts.lastMove()).append(", ");
+            text.append("After ").append(facts.lastMove()).append(", ").append(describeBalance(facts));
+        } else {
+            text.append(capitalize(describeBalance(facts)));
         }
-        text.append(capitalize(describeBalance(facts))).append(" (")
+        text.append(" (")
                 .append(formatEvaluation(facts)).append(" at depth ").append(facts.depth()).append("). ");
         text.append(bestMoveSentence(facts));
         if (facts.inCheck()) {

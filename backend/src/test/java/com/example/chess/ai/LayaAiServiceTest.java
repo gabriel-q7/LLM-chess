@@ -51,6 +51,15 @@ class LayaAiServiceTest {
     }
 
     @Test
+    void balanceIsNotCapitalisedMidSentence() {
+        when(client.decide(any())).thenReturn(answers("other", 0.1, "development", 0.1));
+        EngineAnalysis equal = new EngineAnalysis("b8c6", 0.1, 18, null, List.of("b8c6"));
+
+        assertThat(service.explainPosition(FEN, "Nf3", equal)).startsWith("After Nf3, the position is roughly equal (+0.10");
+        assertThat(service.explainPosition(FEN, null, equal)).startsWith("The position is roughly equal (+0.10");
+    }
+
+    @Test
     void lowConfidenceThemeIsLeftOut() {
         when(client.decide(any())).thenReturn(answers("other", 0.1, "endgame", 0.3));
 
