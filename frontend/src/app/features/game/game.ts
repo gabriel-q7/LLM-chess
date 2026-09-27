@@ -1,6 +1,7 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { Observable } from 'rxjs';
-import { Color, Game as GameModel } from '../../core/models/game.model';
+import { Color, Difficulty, Game as GameModel } from '../../core/models/game.model';
+import { DIFFICULTY_LABELS } from '../../core/format';
 import { Move, MoveRequest } from '../../core/models/move.model';
 import { GameService } from '../../core/services/game.service';
 import { userMessage } from '../../core/services/error-message';
@@ -24,6 +25,9 @@ export class Game implements OnInit {
 
   protected readonly game = this.games.game;
   protected readonly error = signal<string | null>(null);
+  protected readonly difficulty = signal<Difficulty>('MEDIUM');
+  protected readonly difficulties: Difficulty[] = ['EASY', 'MEDIUM', 'HARD'];
+  protected readonly difficultyLabels = DIFFICULTY_LABELS;
 
   protected readonly lastMove = computed(() => this.game()?.moves.at(-1) ?? null);
 
@@ -51,7 +55,7 @@ export class Game implements OnInit {
   }
 
   protected newGame(color: Color): void {
-    this.run(this.games.createGame(color));
+    this.run(this.games.createGame(color, this.difficulty()));
   }
 
   protected onMove(move: MoveRequest): void {

@@ -5,14 +5,16 @@ import com.example.chess.chess.Color;
 import com.example.chess.engine.EngineAnalysis;
 import org.springframework.stereotype.Component;
 
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
 /**
- * Builds the structured context sent to Laya. Laya answers typed questions over a text "state",
- * so the prompt is a plain-English statement of engine facts plus a set of decision questions.
+ * Decides what the assistant knows and builds the structured context sent to Laya. Laya answers
+ * typed questions over a text "state"; the state holds only disclosed facts, so neither Laya nor
+ * the reply can mention the best move, the engine line or the score when the level hides them.
  */
 @Component
 public class PromptBuilder {
@@ -43,32 +45,50 @@ public class PromptBuilder {
         this.chessService = chessService;
     }
 
-    public PositionFacts facts(String fen, String lastMove, EngineAnalysis analysis) {
+    public PositionFacts facts(PositionContext context) {
+        String fen = context.fen();
+        EngineAnalysis analysis = context.analysis();
+        Disclosure disclosure = context.disclosure();
+        Color player = context.playerColor();
+
         List<String> line = analysis.principalVariation().isEmpty() && analysis.bestMove() != null
                 ? List.of(analysis.bestMove())
                 : analysis.principalVariation();
         List<String> san = chessService.toSanLine(fen, line);
+        String bestMove = san.isEmpty() ? null : san.getFirst();
+
+        Integer mateIn = analysis.mateIn() == null || analysis.mateIn() == 0 ? null : analysis.mateIn();
+        Color mating = mateIn == null ? null : (mateIn > 0 ? Color.WHITE : Color.BLACK);
+        boolean playerMates = mating == player;
+        boolean mateVisible = mating != null && (!playerMates || disclosure.playerMate() != Disclosure.MateDisclosure.HIDDEN);
+
         int white = chessService.material(fen, Color.WHITE);
         int black = chessService.material(fen, Color.BLACK);
         int moveNumber = Integer.parseInt(fen.trim().split("\\s+")[5]);
+
         return new PositionFacts(
-                fen,
                 chessService.sideToMove(fen),
+                player,
                 moveNumber,
                 phase(moveNumber, white + black),
                 white,
                 black,
                 chessService.position(fen, List.of()).check(),
-                lastMove,
-                san.isEmpty() ? null : san.getFirst(),
-                san.stream().limit(PV_LENGTH).toList(),
-                analysis.evaluation(),
-                analysis.mateIn(),
-                analysis.depth());
+                context.lastMove(),
+                balance(analysis.evaluation(), mating, mateIn, playerMates, disclosure),
+                disclosure.numericEvaluation() ? formatEvaluation(analysis, mateVisible) + " at depth " + analysis.depth() : null,
+                disclosure.bestMove() ? bestMove : null,
+                disclosure.pieceHint() && bestMove != null ? pieceOf(bestMove) : null,
+                disclosure.continuation() ? san.stream().limit(PV_LENGTH).toList() : List.of(),
+                mateIn != null && !playerMates ? Math.abs(mateIn) : null,
+                mateIn != null && playerMates && disclosure.playerMate() == Disclosure.MateDisclosure.EXACT ? Math.abs(mateIn) : null,
+                mateIn != null && playerMates && disclosure.playerMate() != Disclosure.MateDisclosure.HIDDEN,
+                analysis.bestMove() == null);
     }
 
     public LayaModels.Request positionRequest(PositionFacts facts, String model) {
-        return new LayaModels.Request(model, describe(facts), Map.of(FOCUS, focusQuestion()));
+        return new LayaModels.Request(model, describe(facts), Map.of(FOCUS,
+                LayaModels.Question.choice("Which theme best describes what matters most in this position?", FOCUSES)));
     }
 
     /**
@@ -81,31 +101,85 @@ public class PromptBuilder {
                 Map.of(INTENT, LayaModels.Question.choice("What is the player asking about?", INTENTS)));
     }
 
-    /** Plain-English statement of the facts. Laya classifies text, so FEN alone tells it little. */
+    /** Plain-English statement of the disclosed facts. */
     String describe(PositionFacts facts) {
-        StringBuilder text = new StringBuilder("Engine facts about the chess position.\n");
-        text.append("FEN: ").append(facts.fen()).append('\n');
+        StringBuilder text = new StringBuilder("Facts about the chess position.\n");
         text.append("Move ").append(facts.moveNumber()).append(", ")
                 .append(facts.phase().name().toLowerCase(Locale.ROOT)).append(". ")
                 .append(name(facts.sideToMove())).append(" to move.\n");
         text.append("Last move: ").append(facts.lastMove() == null ? "none" : facts.lastMove()).append('\n');
-        text.append("Material: ").append(ExplanationComposer.describeMaterial(facts)).append('\n');
+        text.append("Material: ").append(describeMaterial(facts)).append('\n');
         if (facts.inCheck()) {
             text.append(name(facts.sideToMove())).append(" is in check.\n");
         }
-        text.append("Stockfish analysis:\n");
-        text.append("Best move: ").append(facts.hasBestMove() ? facts.bestMove() + describeMoveKind(facts.bestMove()) : "none").append('\n');
-        text.append("Evaluation: ").append(ExplanationComposer.formatEvaluation(facts))
-                .append(" (").append(ExplanationComposer.describeBalance(facts)).append(")\n");
-        text.append("Search depth: ").append(facts.depth()).append('\n');
+        text.append("Assessment: ").append(facts.balance()).append('\n');
+        if (facts.evaluation() != null) {
+            text.append("Evaluation: ").append(facts.evaluation()).append('\n');
+        }
+        if (facts.bestMove() != null) {
+            text.append("Best move: ").append(facts.bestMove()).append(describeMoveKind(facts.bestMove())).append('\n');
+        }
+        if (facts.pieceHint() != null) {
+            text.append("Piece to consider: ").append(facts.pieceHint()).append('\n');
+        }
         if (facts.continuation().size() > 1) {
             text.append("Expected continuation: ").append(String.join(" ", facts.continuation())).append('\n');
         }
         return text.toString();
     }
 
-    private static LayaModels.Question focusQuestion() {
-        return LayaModels.Question.choice("Which theme best describes what matters most in this position?", FOCUSES);
+    private static String balance(double evaluation, Color mating, Integer mateIn, boolean playerMates,
+                                  Disclosure disclosure) {
+        if (mating != null) {
+            if (!playerMates || disclosure.playerMate() == Disclosure.MateDisclosure.EXACT) {
+                return name(mating) + " can force mate in " + Math.abs(mateIn);
+            }
+            return disclosure.playerMate() == Disclosure.MateDisclosure.EXISTS
+                    ? name(mating) + " has a forced mate"
+                    : name(mating) + " is winning";
+        }
+        double abs = Math.abs(evaluation);
+        String leader = evaluation > 0 ? "White" : "Black";
+        if (abs < 0.3) {
+            return "the position is roughly equal";
+        }
+        if (abs < 1.0) {
+            return leader + " is slightly better";
+        }
+        if (abs < 2.5) {
+            return leader + " is clearly better";
+        }
+        return leader + " is winning";
+    }
+
+    private static String formatEvaluation(EngineAnalysis analysis, boolean mateVisible) {
+        if (analysis.mateIn() != null && mateVisible) {
+            return analysis.mateIn() >= 0 ? "#" + analysis.mateIn() : "#-" + Math.abs(analysis.mateIn());
+        }
+        return String.format(Locale.ROOT, "%+.2f", analysis.evaluation());
+    }
+
+    static String pieceOf(String san) {
+        if (san.startsWith("O-O")) {
+            return "castling";
+        }
+        return switch (san.charAt(0)) {
+            case 'N' -> "knight";
+            case 'B' -> "bishop";
+            case 'R' -> "rook";
+            case 'Q' -> "queen";
+            case 'K' -> "king";
+            default -> "pawn";
+        };
+    }
+
+    static String describeMaterial(PositionFacts facts) {
+        int diff = facts.whiteMaterial() - facts.blackMaterial();
+        if (diff == 0) {
+            return "equal";
+        }
+        int points = Math.abs(diff);
+        return (diff > 0 ? "White" : "Black") + " is up " + points + (points == 1 ? " point" : " points");
     }
 
     private static String describeMoveKind(String san) {
@@ -142,6 +216,6 @@ public class PromptBuilder {
         for (int i = 0; i < pairs.length; i += 2) {
             map.put(pairs[i], pairs[i + 1]);
         }
-        return java.util.Collections.unmodifiableMap(map);
+        return Collections.unmodifiableMap(map);
     }
 }

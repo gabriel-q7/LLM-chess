@@ -38,10 +38,9 @@ chess:
     path: ${STOCKFISH_PATH:}
     host: ${STOCKFISH_HOST:localhost}
     port: ${STOCKFISH_PORT:4000}
-    move-depth: ${STOCKFISH_MOVE_DEPTH:12}
+    # Depth of the full-strength analysis the AI assistant explains. The computer's own moves
+    # use the strength of the game's difficulty level.
     analysis-depth: ${STOCKFISH_ANALYSIS_DEPTH:18}
-    # 0 (weakest) to 20 (full strength); applies to the computer's moves, not to analysis.
-    skill-level: ${STOCKFISH_SKILL_LEVEL:20}
     timeout: ${STOCKFISH_TIMEOUT:30s}
   ai:
     laya:

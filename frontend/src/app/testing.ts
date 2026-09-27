@@ -15,6 +15,7 @@ export function gameFixture(overrides: Partial<Game> = {}): Game {
     status: 'PLAYING',
     turn: 'WHITE',
     playerColor: 'WHITE',
+    difficulty: 'MEDIUM',
     check: false,
     winner: null,
     drawReason: null,

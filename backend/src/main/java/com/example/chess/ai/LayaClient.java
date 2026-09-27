@@ -1,5 +1,7 @@
 package com.example.chess.ai;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
@@ -9,6 +11,8 @@ import org.springframework.web.client.RestClientException;
  */
 public class LayaClient {
 
+    private static final Logger log = LoggerFactory.getLogger(LayaClient.class);
+
     private final RestClient restClient;
 
     public LayaClient(RestClient restClient) {
@@ -16,6 +20,7 @@ public class LayaClient {
     }
 
     public LayaModels.Response decide(LayaModels.Request request) {
+        log.debug("Laya state:\n{}", request.state());
         try {
             LayaModels.Response response = restClient.post()
                     .uri("/v1/systemone")

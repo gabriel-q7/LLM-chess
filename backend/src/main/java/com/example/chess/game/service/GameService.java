@@ -11,6 +11,7 @@ import com.example.chess.common.ApiException;
 import com.example.chess.common.ErrorCode;
 import com.example.chess.engine.ChessEngine;
 import com.example.chess.engine.EngineUnavailableException;
+import com.example.chess.game.domain.Difficulty;
 import com.example.chess.game.domain.Game;
 import com.example.chess.game.domain.GameStatus;
 import com.example.chess.game.domain.Move;
@@ -50,9 +51,9 @@ public class GameService {
         this.clock = clock;
     }
 
-    public GameState createGame(Color playerColor) {
+    public GameState createGame(Color playerColor, Difficulty difficulty) {
         LocalDateTime now = LocalDateTime.now(clock);
-        Game game = new Game(UUID.randomUUID(), ChessService.STANDARD_START_FEN, playerColor, now);
+        Game game = new Game(UUID.randomUUID(), ChessService.STANDARD_START_FEN, playerColor, difficulty, now);
         ChessPosition start = chessService.position(game.getInitialFen(), List.of());
         List<AppliedMove> applied = new ArrayList<>();
         if (start.turn() == game.getComputerColor()) {
@@ -91,7 +92,7 @@ public class GameService {
     }
 
     private AppliedMove computerMove(Game game, List<ChessMove> history, ChessPosition position) {
-        String uci = engine.getBestMove(position.fen());
+        String uci = engine.getBestMove(position.fen(), game.getDifficulty().strength());
         try {
             return chessService.applyMove(game.getInitialFen(), history, ChessMove.fromUci(uci));
         } catch (IllegalArgumentException | IllegalMoveException e) {

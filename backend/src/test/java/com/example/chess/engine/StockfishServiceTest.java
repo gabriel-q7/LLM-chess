@@ -19,7 +19,7 @@ class StockfishServiceTest {
     private static final String WHITE_TO_MOVE = ChessService.STANDARD_START_FEN;
     private static final String BLACK_TO_MOVE = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1";
 
-    private final EngineProperties properties = new EngineProperties("localhost", 4000, null, 10, 18, 5, Duration.ofSeconds(5));
+    private final EngineProperties properties = new EngineProperties("localhost", 4000, null, 18, Duration.ofSeconds(5));
     private final StockfishClient client = mock(StockfishClient.class);
     private final StockfishService service = new StockfishService(client, new ChessService(), properties);
 
@@ -78,16 +78,22 @@ class StockfishServiceTest {
     }
 
     @Test
-    void computerMoveUsesConfiguredDepthAndSkill() {
-        when(client.search(WHITE_TO_MOVE, 10, 5)).thenReturn(new StockfishClient.UciResult("e2e4", 10, 30, null, List.of()));
+    void computerMoveUsesRequestedDepthAndSkill() {
+        when(client.search(WHITE_TO_MOVE, 4, 2)).thenReturn(new StockfishClient.UciResult("e2e4", 4, 30, null, List.of()));
 
-        assertThat(service.getBestMove(WHITE_TO_MOVE)).isEqualTo("e2e4");
+        assertThat(service.getBestMove(WHITE_TO_MOVE, new EngineStrength(2, 4))).isEqualTo("e2e4");
+    }
+
+    @Test
+    void rejectsInvalidStrength() {
+        assertThatThrownBy(() -> new EngineStrength(21, 5)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new EngineStrength(5, 0)).isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     void failsWhenEngineReturnsNoMove() {
         when(client.search(anyString(), anyInt(), anyInt())).thenReturn(new StockfishClient.UciResult(null, 0, 0, null, List.of()));
 
-        assertThatThrownBy(() -> service.getBestMove(WHITE_TO_MOVE)).isInstanceOf(EngineUnavailableException.class);
+        assertThatThrownBy(() -> service.getBestMove(WHITE_TO_MOVE, new EngineStrength(20, 10))).isInstanceOf(EngineUnavailableException.class);
     }
 }

@@ -20,20 +20,26 @@
 
   @if (analysis(); as a) {
     <div class="space-y-2 rounded-lg bg-neutral-50 p-3 dark:bg-neutral-800/60" data-testid="analysis">
-      <dl class="grid grid-cols-3 gap-2 text-center">
-        <div>
-          <dt class="text-xs text-neutral-500 dark:text-neutral-400">Best move</dt>
-          <dd class="font-mono text-base font-semibold">{{ a.bestMove ?? '—' }}</dd>
-        </div>
-        <div>
-          <dt class="text-xs text-neutral-500 dark:text-neutral-400">Evaluation</dt>
-          <dd class="font-mono text-base font-semibold">{{ formatEvaluation(a.evaluation, a.mateIn) }}</dd>
-        </div>
-        <div>
-          <dt class="text-xs text-neutral-500 dark:text-neutral-400">Depth</dt>
-          <dd class="font-mono text-base font-semibold">{{ a.depth }}</dd>
-        </div>
-      </dl>
+      @if (a.bestMove !== null || a.evaluation !== null) {
+        <dl class="grid grid-cols-3 gap-2 text-center">
+          @if (a.bestMove !== null) {
+            <div data-testid="best-move">
+              <dt class="text-xs text-neutral-500 dark:text-neutral-400">Best move</dt>
+              <dd class="font-mono text-base font-semibold">{{ a.bestMove }}</dd>
+            </div>
+          }
+          @if (a.evaluation !== null) {
+            <div data-testid="evaluation">
+              <dt class="text-xs text-neutral-500 dark:text-neutral-400">Evaluation</dt>
+              <dd class="font-mono text-base font-semibold">{{ formatEvaluation(a.evaluation, a.mateIn) }}</dd>
+            </div>
+            <div>
+              <dt class="text-xs text-neutral-500 dark:text-neutral-400">Depth</dt>
+              <dd class="font-mono text-base font-semibold">{{ a.depth }}</dd>
+            </div>
+          }
+        </dl>
+      }
       <p class="text-sm leading-relaxed text-neutral-700 dark:text-neutral-200">{{ a.explanation }}</p>
     </div>
   }

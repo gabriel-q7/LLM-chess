@@ -19,13 +19,13 @@ class StockfishServiceIT {
     private final EngineProperties properties = new EngineProperties(
             System.getenv("STOCKFISH_HOST"),
             Integer.parseInt(System.getenv().getOrDefault("STOCKFISH_PORT", "4000")),
-            null, 8, 12, 20, Duration.ofSeconds(30));
+            null, 12, Duration.ofSeconds(30));
     private final ChessService chess = new ChessService();
     private final StockfishService engine = new StockfishService(new StockfishClient(properties), chess, properties);
 
     @Test
     void returnsALegalMoveFromTheStartingPosition() {
-        String move = engine.getBestMove(ChessService.STANDARD_START_FEN);
+        String move = engine.getBestMove(ChessService.STANDARD_START_FEN, new EngineStrength(2, 4));
 
         assertThat(chess.position(ChessService.STANDARD_START_FEN, java.util.List.of()).legalMoves())
                 .extracting(m -> m.toUci())

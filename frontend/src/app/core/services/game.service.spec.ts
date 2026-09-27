@@ -18,11 +18,11 @@ describe('GameService', () => {
   afterEach(() => http.verify());
 
   it('creates a game and keeps it as current state', () => {
-    service.createGame('BLACK').subscribe();
+    service.createGame('BLACK', 'HARD').subscribe();
 
     const request = http.expectOne('/api/games');
     expect(request.request.method).toBe('POST');
-    expect(request.request.body).toEqual({ playerColor: 'BLACK' });
+    expect(request.request.body).toEqual({ playerColor: 'BLACK', difficulty: 'HARD' });
     expect(service.busy()).toBe(true);
     request.flush(gameFixture({ playerColor: 'BLACK' }));
 
@@ -40,7 +40,7 @@ describe('GameService', () => {
   });
 
   it('submits moves for the current game', () => {
-    service.createGame('WHITE').subscribe();
+    service.createGame('WHITE', 'MEDIUM').subscribe();
     http.expectOne('/api/games').flush(gameFixture());
 
     service.submitMove({ from: 'e2', to: 'e4' }).subscribe();
@@ -54,7 +54,7 @@ describe('GameService', () => {
 
   it('turns API errors into player-facing messages', () => {
     let message = '';
-    service.createGame('WHITE').subscribe({ error: (e) => (message = userMessage(e)) });
+    service.createGame('WHITE', 'MEDIUM').subscribe({ error: (e) => (message = userMessage(e)) });
 
     http.expectOne('/api/games').flush(
       { code: 'ENGINE_UNAVAILABLE', message: 'The chess engine is unavailable.' },

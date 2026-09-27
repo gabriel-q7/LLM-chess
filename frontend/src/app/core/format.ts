@@ -5,3 +5,5 @@ export function formatEvaluation(evaluation: number, mateIn: number | null): str
   }
   return `${evaluation >= 0 ? '+' : ''}${evaluation.toFixed(2)}`;
 }
+
+export const DIFFICULTY_LABELS = { EASY: 'Easy', MEDIUM: 'Medium', HARD: 'Hard' } as const;

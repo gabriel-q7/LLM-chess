@@ -34,6 +34,20 @@ describe('Game', () => {
     expect(element.querySelector('[data-testid="status"]')?.textContent).toContain('Your move.');
   });
 
+  it('creates the game at the chosen difficulty', async () => {
+    click('[data-difficulty="HARD"]');
+    await fixture.whenStable();
+    expect(element.querySelector('[data-difficulty="HARD"]')?.getAttribute('aria-checked')).toBe('true');
+
+    click('[data-testid="new-black"]');
+    const request = http.expectOne('/api/games');
+    expect(request.request.body).toEqual({ playerColor: 'BLACK', difficulty: 'HARD' });
+    request.flush(gameFixture({ playerColor: 'BLACK', difficulty: 'HARD' }));
+    await fixture.whenStable();
+
+    expect(element.querySelector('[data-testid="difficulty"]')?.textContent).toContain('Hard');
+  });
+
   it('submits the move and shows the updated game and history', async () => {
     click('[data-testid="new-white"]');
     http.expectOne('/api/games').flush(gameFixture());

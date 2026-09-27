@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Observable, finalize, tap } from 'rxjs';
-import { Color, CreateGameRequest, Game } from '../models/game.model';
+import { Color, CreateGameRequest, Difficulty, Game } from '../models/game.model';
 import { MoveRequest } from '../models/move.model';
 
 const STORAGE_KEY = 'chess-ai.gameId';
@@ -25,8 +25,8 @@ export class GameService {
     return !!game && game.status === 'PLAYING' && game.turn === game.playerColor;
   });
 
-  createGame(playerColor: Color): Observable<Game> {
-    const body: CreateGameRequest = { playerColor };
+  createGame(playerColor: Color, difficulty: Difficulty): Observable<Game> {
+    const body: CreateGameRequest = { playerColor, difficulty };
     return this.track(this.http.post<Game>(this.baseUrl, body));
   }
 

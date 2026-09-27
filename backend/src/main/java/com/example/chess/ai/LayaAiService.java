@@ -1,14 +1,13 @@
 package com.example.chess.ai;
 
-import com.example.chess.engine.EngineAnalysis;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 /**
- * Assistant backed by Laya. Laya reads the player's question and the engine facts and returns
+ * Assistant backed by Laya. Laya reads the player's question and the disclosed facts and returns
  * typed decisions (what the player asks about, which theme matters); the reply text is composed
- * from engine facts, so it cannot contain moves the engine did not produce.
+ * from those facts, so it cannot contain moves the engine did not produce or the level hides.
  */
 @Service
 public class LayaAiService implements AiService {
@@ -29,15 +28,15 @@ public class LayaAiService implements AiService {
     }
 
     @Override
-    public String explainPosition(String fen, String lastMove, EngineAnalysis analysis) {
-        PositionFacts facts = promptBuilder.facts(fen, lastMove, analysis);
+    public String explainPosition(PositionContext context) {
+        PositionFacts facts = promptBuilder.facts(context);
         LayaModels.Response response = client.decide(promptBuilder.positionRequest(facts, properties.model()));
         return composer.explain(facts, confidentChoice(response, PromptBuilder.FOCUS));
     }
 
     @Override
-    public String answerQuestion(String question, String fen, String lastMove, EngineAnalysis analysis) {
-        PositionFacts facts = promptBuilder.facts(fen, lastMove, analysis);
+    public String answerQuestion(String question, PositionContext context) {
+        PositionFacts facts = promptBuilder.facts(context);
         LayaModels.Response intent = client.decide(promptBuilder.intentRequest(question, properties.model()));
         LayaModels.Response position = client.decide(promptBuilder.positionRequest(facts, properties.model()));
         return composer.answer(confidentChoice(intent, PromptBuilder.INTENT), facts,

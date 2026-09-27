@@ -9,6 +9,7 @@ import com.example.chess.common.ApiException;
 import com.example.chess.common.ErrorCode;
 import com.example.chess.engine.EngineUnavailableException;
 import com.example.chess.game.controller.GameController;
+import com.example.chess.game.domain.Difficulty;
 import com.example.chess.game.domain.Game;
 import com.example.chess.game.service.GameAnalysisService;
 import com.example.chess.game.service.GameService;
@@ -51,23 +52,50 @@ class GameControllerTest {
     GameAnalysisService analysisService;
 
     private static GameState newGame() {
+        return newGame(Difficulty.MEDIUM);
+    }
+
+    private static GameState newGame(Difficulty difficulty) {
         ChessService chess = new ChessService();
-        Game game = new Game(ID, ChessService.STANDARD_START_FEN, Color.WHITE, LocalDateTime.now());
+        Game game = new Game(ID, ChessService.STANDARD_START_FEN, Color.WHITE, difficulty, LocalDateTime.now());
         return new GameState(game, List.of(), chess.position(ChessService.STANDARD_START_FEN, List.of()));
     }
 
     @Test
     void createsGame() throws Exception {
-        when(gameService.createGame(Color.WHITE)).thenReturn(newGame());
+        when(gameService.createGame(Color.WHITE, Difficulty.MEDIUM)).thenReturn(newGame());
 
         mvc.perform(post("/api/games"))
                 .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.difficulty").value("MEDIUM"))
                 .andExpect(jsonPath("$.id").value(ID.toString()))
                 .andExpect(jsonPath("$.status").value("PLAYING"))
                 .andExpect(jsonPath("$.turn").value("WHITE"))
                 .andExpect(jsonPath("$.fen").value(ChessService.STANDARD_START_FEN))
                 .andExpect(jsonPath("$.moves", hasSize(0)))
                 .andExpect(jsonPath("$.legalMoves", hasSize(20)));
+    }
+
+    @Test
+    void createsGameWithChosenDifficulty() throws Exception {
+        when(gameService.createGame(Color.BLACK, Difficulty.HARD)).thenReturn(newGame(Difficulty.HARD));
+
+        mvc.perform(post("/api/games").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"playerColor\":\"BLACK\",\"difficulty\":\"HARD\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.difficulty").value("HARD"));
+    }
+
+    @Test
+    void hiddenAnalysisFieldsAreNull() throws Exception {
+        when(analysisService.analyze(ID)).thenReturn(
+                new GameAnalysisService.PositionAnalysis(null, null, null, 18, "Black is slightly better."));
+
+        mvc.perform(post("/api/games/{id}/analysis", ID))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.bestMove").doesNotExist())
+                .andExpect(jsonPath("$.evaluation").doesNotExist())
+                .andExpect(jsonPath("$.explanation").value("Black is slightly better."));
     }
 
     @Test

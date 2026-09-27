@@ -2,6 +2,7 @@ package com.example.chess.game.controller.dto;
 
 import com.example.chess.chess.Color;
 import com.example.chess.chess.PositionOutcome;
+import com.example.chess.game.domain.Difficulty;
 import com.example.chess.game.domain.GameStatus;
 import com.example.chess.game.service.GameState;
 
@@ -19,6 +20,7 @@ public record GameResponse(
         GameStatus status,
         Color turn,
         Color playerColor,
+        Difficulty difficulty,
         boolean check,
         Color winner,
         String drawReason,
@@ -35,6 +37,7 @@ public record GameResponse(
                 status,
                 turn,
                 state.game().getPlayerColor(),
+                state.game().getDifficulty(),
                 state.position().check(),
                 status == GameStatus.CHECKMATE ? turn.opposite() : null,
                 drawReason(state.position().outcome()),

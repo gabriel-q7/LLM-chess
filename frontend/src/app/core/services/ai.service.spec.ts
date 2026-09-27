@@ -31,6 +31,6 @@ describe('AiService', () => {
 
     const request = http.expectOne('/api/games/game-1/chat');
     expect(request.request.body).toEqual({ question: 'Why?' });
-    request.flush({ answer: 'Because.', bestMove: null, evaluation: 0, depth: 1, mateIn: null });
+    request.flush({ answer: 'Because.' });
   });
 });

@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS games (
     fen          VARCHAR(100) NOT NULL,
     status       VARCHAR(20)  NOT NULL,
     player_color VARCHAR(5)   NOT NULL,
+    difficulty   VARCHAR(10)  NOT NULL DEFAULT 'MEDIUM',
     version      BIGINT       NOT NULL DEFAULT 0,
     created_at   TIMESTAMP    NOT NULL,
     updated_at   TIMESTAMP    NOT NULL

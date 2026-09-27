@@ -4,7 +4,29 @@
       <span aria-hidden="true">♞</span>
       AI Chess
     </h1>
-    <div class="flex gap-2">
+    <div class="flex flex-wrap items-center justify-end gap-2">
+      <div class="inline-flex rounded-md shadow-sm" role="radiogroup" aria-label="Difficulty">
+        @for (level of difficulties; track level; let first = $first; let last = $last) {
+          <button
+            type="button"
+            role="radio"
+            class="border border-neutral-300 px-3 py-1.5 text-sm font-medium dark:border-neutral-600"
+            [class]="
+              (difficulty() === level
+                ? 'bg-sky-600 text-white border-sky-600 dark:border-sky-600'
+                : 'bg-white hover:bg-neutral-50 dark:bg-neutral-800 dark:hover:bg-neutral-700') +
+              (first ? ' rounded-l-md' : ' -ml-px') +
+              (last ? ' rounded-r-md' : '')
+            "
+            [attr.aria-checked]="difficulty() === level"
+            [attr.data-difficulty]="level"
+            [disabled]="games.busy()"
+            (click)="difficulty.set(level)"
+          >
+            {{ difficultyLabels[level] }}
+          </button>
+        }
+      </div>
       <button
         type="button"
         class="rounded-md border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium shadow-sm hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-600 dark:bg-neutral-800 dark:hover:bg-neutral-700"
@@ -55,7 +77,8 @@
         <p class="text-base font-medium" data-testid="status" aria-live="polite">{{ status() }}</p>
         @if (game(); as g) {
           <p class="text-sm text-neutral-500 dark:text-neutral-400">
-            You play {{ g.playerColor === 'WHITE' ? 'White' : 'Black' }} against Stockfish.
+            You play {{ g.playerColor === 'WHITE' ? 'White' : 'Black' }} against Stockfish ·
+            <span data-testid="difficulty">{{ difficultyLabels[g.difficulty] }}</span>
           </p>
         }
       </section>

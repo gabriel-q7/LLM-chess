@@ -25,12 +25,12 @@ services:
       DATABASE_PATH: /app/data/chess.db
       STOCKFISH_HOST: stockfish
       STOCKFISH_PORT: "4000"
-      STOCKFISH_MOVE_DEPTH: "${STOCKFISH_MOVE_DEPTH:-12}"
       STOCKFISH_ANALYSIS_DEPTH: "${STOCKFISH_ANALYSIS_DEPTH:-18}"
-      STOCKFISH_SKILL_LEVEL: "${STOCKFISH_SKILL_LEVEL:-20}"
       LAYA_BASE_URL: http://laya:8000
       LAYA_MODEL: "${LAYA_MODEL:-english}"
       LAYA_API_KEY: "${LAYA_API_KEY:-}"
+      # DEBUG logs the exact state sent to Laya.
+      LOGGING_LEVEL_COM_EXAMPLE_CHESS_AI: "${AI_LOG_LEVEL:-INFO}"
     ports:
       - "${BACKEND_PORT:-8080}:8080"
     volumes:

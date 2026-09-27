@@ -36,8 +36,8 @@ public class GameController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public GameResponse create(@RequestBody(required = false) CreateGameRequest request) {
-        CreateGameRequest body = request == null ? new CreateGameRequest(null) : request;
-        return GameResponse.from(gameService.createGame(body.playerColorOrDefault()));
+        CreateGameRequest body = request == null ? new CreateGameRequest(null, null) : request;
+        return GameResponse.from(gameService.createGame(body.playerColorOrDefault(), body.difficultyOrDefault()));
     }
 
     @GetMapping("/{id}")

@@ -36,6 +36,18 @@ describe('AiChat', () => {
     expect(analysis).toContain('White is slightly better.');
   });
 
+  it('hides the engine numbers the difficulty does not disclose', async () => {
+    element.querySelector<HTMLButtonElement>('[data-testid="analyze"]')!.click();
+    http
+      .expectOne('/api/games/game-1/analysis')
+      .flush({ bestMove: null, evaluation: null, depth: 18, mateIn: null, explanation: 'Black is slightly better.' });
+    await fixture.whenStable();
+
+    expect(element.querySelector('[data-testid="best-move"]')).toBeNull();
+    expect(element.querySelector('[data-testid="evaluation"]')).toBeNull();
+    expect(element.querySelector('[data-testid="analysis"]')!.textContent).toContain('Black is slightly better.');
+  });
+
   it('shows a friendly message when the AI is unavailable', async () => {
     element.querySelector<HTMLButtonElement>('[data-testid="analyze"]')!.click();
     http
@@ -55,7 +67,7 @@ describe('AiChat', () => {
 
     const request = http.expectOne('/api/games/game-1/chat');
     expect(request.request.body).toEqual({ question: 'Who is winning?' });
-    request.flush({ answer: 'The position is roughly equal.', bestMove: 'e4', evaluation: 0.1, depth: 18, mateIn: null });
+    request.flush({ answer: 'The position is roughly equal.' });
     await fixture.whenStable();
 
     const log = element.querySelector('[data-testid="chat-log"]')!.textContent!;

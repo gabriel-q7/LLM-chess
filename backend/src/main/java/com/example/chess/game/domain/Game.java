@@ -36,6 +36,10 @@ public class Game {
     @Column(name = "player_color", nullable = false)
     private Color playerColor;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private Difficulty difficulty;
+
     @Version
     private Long version;
 
@@ -48,12 +52,13 @@ public class Game {
     protected Game() {
     }
 
-    public Game(UUID id, String initialFen, Color playerColor, LocalDateTime now) {
+    public Game(UUID id, String initialFen, Color playerColor, Difficulty difficulty, LocalDateTime now) {
         this.id = id;
         this.initialFen = initialFen;
         this.fen = initialFen;
         this.status = GameStatus.PLAYING;
         this.playerColor = playerColor;
+        this.difficulty = difficulty;
         this.createdAt = now;
         this.updatedAt = now;
     }
@@ -82,6 +87,10 @@ public class Game {
 
     public Color getPlayerColor() {
         return playerColor;
+    }
+
+    public Difficulty getDifficulty() {
+        return difficulty;
     }
 
     public Color getComputerColor() {

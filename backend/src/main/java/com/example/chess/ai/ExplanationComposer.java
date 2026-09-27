@@ -1,103 +1,125 @@
 package com.example.chess.ai;
 
-import com.example.chess.chess.Color;
 import org.springframework.stereotype.Component;
 
 import java.util.Locale;
 
+import static com.example.chess.ai.PromptBuilder.describeMaterial;
 import static com.example.chess.ai.PromptBuilder.name;
 
 /**
- * Turns engine facts and Laya's decisions into prose. Every sentence states a fact supplied by
- * the rules engine or Stockfish; Laya only chooses which facts to put forward.
+ * Turns the disclosed facts and Laya's decisions into prose. Every sentence states a fact from
+ * {@link PositionFacts}; facts the level hides are absent there, so they cannot leak into a reply.
  */
 @Component
 public class ExplanationComposer {
 
+    static final String NO_HINTS = "No hints at this level: look for your own threats and your opponent's.";
+
     public String explain(PositionFacts facts, String focus) {
-        if (!facts.hasBestMove()) {
+        if (facts.gameOver()) {
             return gameOver(facts);
         }
         StringBuilder text = new StringBuilder();
         if (facts.lastMove() != null) {
-            text.append("After ").append(facts.lastMove()).append(", ").append(describeBalance(facts));
+            text.append("After ").append(facts.lastMove()).append(", ").append(facts.balance());
         } else {
-            text.append(capitalize(describeBalance(facts)));
+            text.append(capitalize(facts.balance()));
         }
-        text.append(" (")
-                .append(formatEvaluation(facts)).append(" at depth ").append(facts.depth()).append("). ");
-        text.append(bestMoveSentence(facts));
-        if (facts.inCheck()) {
-            text.append(' ').append(name(facts.sideToMove())).append(" is in check and must respond to it.");
-        }
-        text.append(' ').append("Material: ").append(describeMaterial(facts)).append('.');
-        String theme = themeSentence(focus);
-        if (theme != null) {
-            text.append(' ').append(theme);
-        }
+        text.append(evaluationSuffix(facts)).append('.');
+        append(text, moveAdvice(facts));
+        append(text, threats(facts));
+        append(text, "Material: " + describeMaterial(facts) + ".");
+        append(text, themeSentence(focus));
         return text.toString();
     }
 
     public String answer(String intent, PositionFacts facts, String focus) {
-        if (!facts.hasBestMove()) {
+        if (facts.gameOver()) {
             return gameOver(facts);
         }
-        String balance = capitalize(describeBalance(facts)) + " (" + formatEvaluation(facts) + ").";
+        String balance = capitalize(facts.balance()) + evaluationSuffix(facts) + ".";
         return switch (intent == null ? "unknown" : intent) {
-            case "best_move" -> bestMoveSentence(facts);
+            case "best_move" -> {
+                String advice = moveAdvice(facts);
+                yield advice == null ? NO_HINTS : advice;
+            }
             case "evaluation" -> balance + " Material: " + describeMaterial(facts) + ".";
             case "last_move" -> lastMoveAnswer(facts);
             case "threats" -> threatsAnswer(facts);
-            case "plan" -> {
-                String theme = themeSentence(focus);
-                yield (theme == null ? "" : theme + " ") + bestMoveSentence(facts);
-            }
+            case "plan" -> join(themeSentence(focus), moveAdvice(facts), balance);
             case "other" -> "I can only talk about this game: ask about the best move, who is better, "
                     + "the last move, threats or plans.";
-            default -> "I'm not sure what you are asking. " + balance + " " + bestMoveSentence(facts);
+            default -> join("I'm not sure what you are asking.", balance, moveAdvice(facts));
         };
     }
 
     private String lastMoveAnswer(PositionFacts facts) {
         if (facts.lastMove() == null) {
-            return "No moves have been played yet. " + bestMoveSentence(facts);
+            return join("No moves have been played yet.", moveAdvice(facts));
         }
-        return (facts.lastMove() + " was the last move. After it, " + describeBalance(facts) + " ("
-                + formatEvaluation(facts) + "). " + continuationSentence(facts)).trim();
+        return join(facts.lastMove() + " was the last move. After it, " + facts.balance() + evaluationSuffix(facts) + ".",
+                continuationSentence(facts));
     }
 
     private String threatsAnswer(PositionFacts facts) {
-        StringBuilder text = new StringBuilder();
-        if (facts.inCheck()) {
-            text.append(name(facts.sideToMove())).append(" is in check. ");
-        }
-        if (facts.mateIn() != null && facts.mateIn() != 0) {
-            Color mating = facts.mateIn() > 0 ? Color.WHITE : Color.BLACK;
-            text.append(name(mating)).append(" has a forced mate in ").append(Math.abs(facts.mateIn())).append(". ");
-        }
-        String best = facts.bestMove();
-        if (best.contains("x")) {
-            text.append("The engine's best move ").append(best).append(" wins or trades material. ");
-        }
-        if (best.endsWith("+")) {
-            text.append("The engine's best move ").append(best).append(" gives check. ");
+        String threats = threats(facts);
+        StringBuilder text = new StringBuilder(threats == null ? "" : threats);
+        if (facts.bestMove() != null) {
+            if (facts.bestMove().contains("x")) {
+                append(text, "The engine's best move " + facts.bestMove() + " wins or trades material.");
+            }
+            if (facts.bestMove().endsWith("+")) {
+                append(text, "The engine's best move " + facts.bestMove() + " gives check.");
+            }
         }
         if (text.isEmpty()) {
-            text.append("Stockfish sees no immediate check, capture or mating threat in its main line. ");
+            text.append("There is no check or forced mate against you right now.");
         }
-        return text.append(continuationSentence(facts)).toString().trim();
+        append(text, continuationSentence(facts));
+        return text.toString();
     }
 
-    private String bestMoveSentence(PositionFacts facts) {
-        return "Stockfish's best move for " + name(facts.sideToMove()) + " is " + facts.bestMove() + "."
-                + (facts.continuation().size() > 1 ? " " + continuationSentence(facts) : "");
+    /** Check and mate threats. Mates against the player are always reported; the player's own only if disclosed. */
+    private String threats(PositionFacts facts) {
+        StringBuilder text = new StringBuilder();
+        if (facts.inCheck()) {
+            append(text, (facts.playersTurn() ? "You are" : name(facts.sideToMove()) + " is") + " in check and must respond to it.");
+        }
+        if (facts.opponentMateIn() != null) {
+            append(text, "Your opponent threatens a forced mate in " + facts.opponentMateIn() + ".");
+        }
+        if (facts.playerMateIn() != null) {
+            append(text, "You have a forced mate in " + facts.playerMateIn() + ".");
+        } else if (facts.playerHasMate()) {
+            append(text, "You have a forced mate: look for it!");
+        }
+        return text.isEmpty() ? null : text.toString();
+    }
+
+    /** The exact move when disclosed, otherwise a piece hint, otherwise nothing. */
+    private String moveAdvice(PositionFacts facts) {
+        String side = facts.playersTurn() ? "you" : name(facts.sideToMove());
+        if (facts.bestMove() != null) {
+            return join("Stockfish's best move for " + side + " is " + facts.bestMove() + ".", continuationSentence(facts));
+        }
+        if (facts.pieceHint() == null) {
+            return null;
+        }
+        if (facts.pieceHint().equals("castling")) {
+            return "Hint: consider castling.";
+        }
+        return "Hint: consider a move with " + (facts.playersTurn() ? "your" : side + "'s") + " " + facts.pieceHint() + ".";
     }
 
     private String continuationSentence(PositionFacts facts) {
-        if (facts.continuation().size() <= 1) {
-            return "";
-        }
-        return "The expected continuation is " + String.join(" ", facts.continuation()) + ".";
+        return facts.continuation().size() <= 1
+                ? null
+                : "The expected continuation is " + String.join(" ", facts.continuation()) + ".";
+    }
+
+    private static String evaluationSuffix(PositionFacts facts) {
+        return facts.evaluation() == null ? "" : " (" + facts.evaluation() + ")";
     }
 
     private static String themeSentence(String focus) {
@@ -121,41 +143,22 @@ public class ExplanationComposer {
         return "The game is over: " + name(facts.sideToMove()) + " has no legal moves.";
     }
 
-    static String formatEvaluation(PositionFacts facts) {
-        if (facts.mateIn() != null) {
-            return facts.mateIn() >= 0 ? "#" + facts.mateIn() : "#-" + Math.abs(facts.mateIn());
+    private static void append(StringBuilder text, String sentence) {
+        if (sentence == null || sentence.isBlank()) {
+            return;
         }
-        return String.format(Locale.ROOT, "%+.2f", facts.evaluation());
+        if (!text.isEmpty()) {
+            text.append(' ');
+        }
+        text.append(sentence);
     }
 
-    static String describeBalance(PositionFacts facts) {
-        if (facts.mateIn() != null && facts.mateIn() != 0) {
-            Color mating = facts.mateIn() > 0 ? Color.WHITE : Color.BLACK;
-            return name(mating) + " can force mate in " + Math.abs(facts.mateIn());
+    private static String join(String... sentences) {
+        StringBuilder text = new StringBuilder();
+        for (String sentence : sentences) {
+            append(text, sentence);
         }
-        double eval = facts.evaluation();
-        double abs = Math.abs(eval);
-        String leader = eval > 0 ? "White" : "Black";
-        if (abs < 0.3) {
-            return "the position is roughly equal";
-        }
-        if (abs < 1.0) {
-            return leader + " is slightly better";
-        }
-        if (abs < 2.5) {
-            return leader + " is clearly better";
-        }
-        return leader + " is winning";
-    }
-
-    static String describeMaterial(PositionFacts facts) {
-        int diff = facts.whiteMaterial() - facts.blackMaterial();
-        if (diff == 0) {
-            return "equal";
-        }
-        String leader = diff > 0 ? "White" : "Black";
-        int points = Math.abs(diff);
-        return leader + " is up " + points + (points == 1 ? " point" : " points");
+        return text.toString();
     }
 
     private static String capitalize(String text) {

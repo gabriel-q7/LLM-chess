@@ -28,8 +28,8 @@ public class StockfishService implements ChessEngine {
     }
 
     @Override
-    public String getBestMove(String fen) {
-        StockfishClient.UciResult result = client.search(fen, properties.moveDepth(), properties.skillLevel());
+    public String getBestMove(String fen, EngineStrength strength) {
+        StockfishClient.UciResult result = client.search(fen, strength.depth(), strength.skillLevel());
         if (result.bestMove() == null) {
             throw new EngineUnavailableException("Engine returned no move for a position with legal moves");
         }
