@@ -4,6 +4,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
 /**
  * Assistant backed by Laya. Laya reads the player's question and the disclosed facts and returns
  * typed decisions (what the player asks about, which theme matters); the reply text is composed
@@ -28,29 +33,62 @@ public class LayaAiService implements AiService {
     }
 
     @Override
-    public String explainPosition(PositionContext context) {
+    public AiReply explainPosition(PositionContext context) {
         PositionFacts facts = promptBuilder.facts(context);
-        LayaModels.Response response = client.decide(promptBuilder.positionRequest(facts, properties.model()));
-        return composer.explain(facts, confidentChoice(response, PromptBuilder.FOCUS));
+        Trace trace = new Trace(context.disclosure());
+        LayaModels.Response response = trace.decide(promptBuilder.positionRequest(facts, properties.model()));
+        return new AiReply(composer.explain(facts, trace.confidentChoice(response, PromptBuilder.FOCUS)), trace.build());
     }
 
     @Override
-    public String answerQuestion(String question, PositionContext context) {
+    public AiReply answerQuestion(String question, PositionContext context) {
         PositionFacts facts = promptBuilder.facts(context);
-        LayaModels.Response intent = client.decide(promptBuilder.intentRequest(question, properties.model()));
-        LayaModels.Response position = client.decide(promptBuilder.positionRequest(facts, properties.model()));
-        return composer.answer(confidentChoice(intent, PromptBuilder.INTENT), facts,
-                confidentChoice(position, PromptBuilder.FOCUS));
+        Trace trace = new Trace(context.disclosure());
+        LayaModels.Response intent = trace.decide(promptBuilder.intentRequest(question, properties.model()));
+        LayaModels.Response position = trace.decide(promptBuilder.positionRequest(facts, properties.model()));
+        String text = composer.answer(trace.confidentChoice(intent, PromptBuilder.INTENT), facts,
+                trace.confidentChoice(position, PromptBuilder.FOCUS));
+        return new AiReply(text, trace.build());
     }
 
-    /** Laya's choice for {@code questionId}, or {@code null} when it is below the confidence threshold. */
-    private String confidentChoice(LayaModels.Response response, String questionId) {
-        LayaModels.Answer answer = response.answer(questionId);
-        if (answer == null || answer.choice() == null) {
-            return null;
+    /** Sends requests to Laya and records each exchange for the reply's {@link AiTrace}. */
+    private final class Trace {
+
+        private final Disclosure disclosure;
+        private final List<AiTrace.Exchange> exchanges = new ArrayList<>();
+
+        Trace(Disclosure disclosure) {
+            this.disclosure = disclosure;
         }
-        double probability = answer.choiceProbability();
-        log.debug("Laya {} = {} (p={})", questionId, answer.choice(), probability);
-        return probability >= properties.minConfidence() ? answer.choice() : null;
+
+        LayaModels.Response decide(LayaModels.Request request) {
+            LayaModels.Response response = client.decide(request);
+            Map<String, AiTrace.Decision> decisions = new LinkedHashMap<>();
+            for (String id : request.questions().keySet()) {
+                LayaModels.Answer answer = response.answer(id);
+                if (answer != null) {
+                    double p = answer.choiceProbability();
+                    decisions.put(id, new AiTrace.Decision(answer.choice(), p, p >= properties.minConfidence(),
+                            answer.probabilities()));
+                }
+            }
+            exchanges.add(new AiTrace.Exchange(request.model(), request.state(), request.questions(), decisions));
+            return response;
+        }
+
+        /** Laya's choice for {@code questionId}, or {@code null} when it is below the confidence threshold. */
+        String confidentChoice(LayaModels.Response response, String questionId) {
+            LayaModels.Answer answer = response.answer(questionId);
+            if (answer == null || answer.choice() == null) {
+                return null;
+            }
+            double probability = answer.choiceProbability();
+            log.debug("Laya {} = {} (p={})", questionId, answer.choice(), probability);
+            return probability >= properties.minConfidence() ? answer.choice() : null;
+        }
+
+        AiTrace build() {
+            return new AiTrace(disclosure, AiTrace.hiddenFacts(disclosure), List.copyOf(exchanges));
+        }
     }
 }

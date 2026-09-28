@@ -25,7 +25,11 @@ class StockfishServiceIT {
 
     @Test
     void returnsALegalMoveFromTheStartingPosition() {
-        String move = engine.getBestMove(ChessService.STANDARD_START_FEN, new EngineStrength(2, 4));
+        EngineMove engineMove = engine.getBestMove(ChessService.STANDARD_START_FEN, new EngineStrength(2, 4));
+        String move = engineMove.move();
+
+        assertThat(engineMove.uciCommands()).contains("setoption name Skill Level value 2", "go depth 4");
+        assertThat(engineMove.bestMoveLine()).startsWith("bestmove " + move);
 
         assertThat(chess.position(ChessService.STANDARD_START_FEN, java.util.List.of()).legalMoves())
                 .extracting(m -> m.toUci())

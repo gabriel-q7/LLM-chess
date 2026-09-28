@@ -67,7 +67,7 @@ describe('AiChat', () => {
 
     const request = http.expectOne('/api/games/game-1/chat');
     expect(request.request.body).toEqual({ question: 'Who is winning?' });
-    request.flush({ answer: 'The position is roughly equal.' });
+    request.flush({ answer: 'The position is roughly equal.', trace: null });
     await fixture.whenStable();
 
     const log = element.querySelector('[data-testid="chat-log"]')!.textContent!;

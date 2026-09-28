@@ -28,12 +28,14 @@ public class StockfishService implements ChessEngine {
     }
 
     @Override
-    public String getBestMove(String fen, EngineStrength strength) {
+    public EngineMove getBestMove(String fen, EngineStrength strength) {
         StockfishClient.UciResult result = client.search(fen, strength.depth(), strength.skillLevel());
         if (result.bestMove() == null) {
             throw new EngineUnavailableException("Engine returned no move for a position with legal moves");
         }
-        return result.bestMove();
+        EngineAnalysis analysis = toWhitePerspective(fen, result);
+        return new EngineMove(result.bestMove(), strength, analysis.depth(), analysis.evaluation(), analysis.mateIn(),
+                analysis.principalVariation(), result.commands(), result.finalInfo(), result.bestMoveLine());
     }
 
     private EngineAnalysis toWhitePerspective(String fen, StockfishClient.UciResult result) {

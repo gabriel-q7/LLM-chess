@@ -33,13 +33,16 @@ class StockfishServiceTest {
         builder.acceptInfo("info depth 18 currmove g1f3 currmovenumber 2");
         builder.acceptBestMove("bestmove e2e4 ponder c7c5");
 
-        StockfishClient.UciResult result = builder.build();
+        StockfishClient.UciResult result = builder.build(List.of("uci", "go depth 18"));
 
         assertThat(result.bestMove()).isEqualTo("e2e4");
         assertThat(result.depth()).isEqualTo(18);
         assertThat(result.scoreCp()).isEqualTo(35);
         assertThat(result.mateIn()).isNull();
         assertThat(result.pv()).containsExactly("e2e4", "c7c5", "g1f3");
+        assertThat(result.finalInfo()).isEqualTo("info depth 18 seldepth 24 multipv 1 score cp 35 nodes 3 nps 1 pv e2e4 c7c5 g1f3");
+        assertThat(result.bestMoveLine()).isEqualTo("bestmove e2e4 ponder c7c5");
+        assertThat(result.commands()).containsExactly("uci", "go depth 18");
     }
 
     @Test
@@ -81,7 +84,11 @@ class StockfishServiceTest {
     void computerMoveUsesRequestedDepthAndSkill() {
         when(client.search(WHITE_TO_MOVE, 4, 2)).thenReturn(new StockfishClient.UciResult("e2e4", 4, 30, null, List.of()));
 
-        assertThat(service.getBestMove(WHITE_TO_MOVE, new EngineStrength(2, 4))).isEqualTo("e2e4");
+        EngineMove move = service.getBestMove(WHITE_TO_MOVE, new EngineStrength(2, 4));
+
+        assertThat(move.move()).isEqualTo("e2e4");
+        assertThat(move.strength()).isEqualTo(new EngineStrength(2, 4));
+        assertThat(move.evaluation()).isEqualTo(0.30);
     }
 
     @Test

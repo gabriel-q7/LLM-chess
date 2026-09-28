@@ -89,13 +89,20 @@ class GameControllerTest {
     @Test
     void hiddenAnalysisFieldsAreNull() throws Exception {
         when(analysisService.analyze(ID)).thenReturn(
-                new GameAnalysisService.PositionAnalysis(null, null, null, 18, "Black is slightly better."));
+                new GameAnalysisService.PositionAnalysis(null, null, null, 18, "Black is slightly better.", null));
 
         mvc.perform(post("/api/games/{id}/analysis", ID))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.bestMove").doesNotExist())
                 .andExpect(jsonPath("$.evaluation").doesNotExist())
                 .andExpect(jsonPath("$.explanation").value("Black is slightly better."));
+    }
+
+    @Test
+    void engineContextIsEmptyBeforeTheComputerMoves() throws Exception {
+        when(gameService.lastComputerMoveContext(ID)).thenReturn(java.util.Optional.empty());
+
+        mvc.perform(get("/api/games/{id}/engine-context", ID)).andExpect(status().isNoContent());
     }
 
     @Test

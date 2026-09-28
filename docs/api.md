@@ -71,6 +71,25 @@ in the response.
 Medium and Hard, `bestMove`, `evaluation` and `mateIn` are `null`; see
 [Difficulty levels](difficulty-levels.md).
 
+Both `/analysis` and `/chat` also return a `trace`: what the assistant received and decided. It
+contains only facts the level discloses, so it is safe on any level.
+
+```json
+"trace": {
+  "disclosure": { "bestMove": false, "pieceHint": false, "continuation": false, "numericEvaluation": false, "playerMate": "HIDDEN" },
+  "hiddenFacts": ["best move", "engine continuation", "numeric evaluation and depth", "the player's forced mate", "FEN"],
+  "exchanges": [
+    { "model": "english",
+      "state": "A chess player asks: Who is winning?",
+      "questions": { "intent": { "type": "choice", "instructions": "What is the player asking about?", "criteria": { "evaluation": "who is winning, the score or advantage" } } },
+      "decisions": { "intent": { "choice": "evaluation", "probability": 0.77, "used": true, "probabilities": { "evaluation": 0.77, "other": 0.14 } } } }
+  ]
+}
+```
+
+`used` is `false` when the probability is below `LAYA_MIN_CONFIDENCE`, in which case the reply
+ignored that decision.
+
 ## Ask the assistant
 
 `POST /api/games/{id}/chat` → `200 OK`
@@ -83,7 +102,32 @@ Medium and Hard, `bestMove`, `evaluation` and `mateIn` are `null`; see
 { "answer": "White is slightly better. Material: equal." }
 ```
 
-`question` is required, up to 500 characters.
+`question` is required, up to 500 characters. The response also carries a `trace` (see above).
+
+## Engine context of the last computer move
+
+`GET /api/games/{id}/engine-context` → `200 OK`, or `204 No Content` before the computer has moved.
+
+This is a **debug endpoint**: it returns Stockfish's full output, including evaluation and line,
+whatever the difficulty.
+
+```json
+{
+  "ply": 2, "san": "e5",
+  "fen": "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1",
+  "difficulty": "HARD",
+  "engine": {
+    "move": "e7e5", "strength": { "skillLevel": 20, "depth": 14 }, "depth": 14,
+    "evaluation": 0.30, "mateIn": null, "principalVariation": ["e7e5", "g1f3", "…"],
+    "uciCommands": ["uci", "setoption name Skill Level value 20", "isready", "ucinewgame", "position fen …", "go depth 14", "quit"],
+    "finalInfo": "info depth 14 seldepth 19 multipv 1 score cp -30 … pv e7e5 g1f3 …",
+    "bestMoveLine": "bestmove e7e5 ponder g1f3"
+  },
+  "principalVariationSan": ["e5", "Nf3", "…"]
+}
+```
+
+The context is stored with each computer move (`moves.engine_context`, JSON).
 
 ## Errors
 

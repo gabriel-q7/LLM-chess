@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Observable, finalize, tap } from 'rxjs';
 import { Color, CreateGameRequest, Difficulty, Game } from '../models/game.model';
+import { ComputerMoveContext } from '../models/ai-context.model';
 import { MoveRequest } from '../models/move.model';
 
 const STORAGE_KEY = 'chess-ai.gameId';
@@ -40,6 +41,11 @@ export class GameService {
       throw new Error('No game in progress');
     }
     return this.track(this.http.post<Game>(`${this.baseUrl}/${game.id}/moves`, move));
+  }
+
+  /** What Stockfish received and returned for the computer's latest move; null before its first move. */
+  engineContext(gameId: string): Observable<ComputerMoveContext | null> {
+    return this.http.get<ComputerMoveContext | null>(`${this.baseUrl}/${gameId}/engine-context`);
   }
 
   /** Id of the game played last in this browser, if any. */

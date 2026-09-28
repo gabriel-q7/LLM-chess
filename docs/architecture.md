@@ -83,7 +83,7 @@ SQLite at `data/chess.db`, accessed through Spring Data JPA with Hibernate's com
 
 - **Schema:** `schema.sql` creates the tables (`CREATE TABLE IF NOT EXISTS`). Hibernate DDL is off.
 - **Upgrades:** `SchemaUpgrade` adds columns that later versions introduced (currently
-  `games.difficulty`) to databases created by earlier versions.
+  `games.difficulty`, `moves.engine_context`) to databases created by earlier versions.
 - **Connections:** one pooled connection, WAL journal and a 5 s busy timeout. SQLite allows a single
   writer, so this avoids `SQLITE_BUSY`.
 - **IDs:** stored as text.
@@ -91,7 +91,7 @@ SQLite at `data/chess.db`, accessed through Spring Data JPA with Hibernate's com
 | Table | Key columns |
 |---|---|
 | `games` | `id`, `initial_fen`, `fen`, `status`, `player_color`, `difficulty`, `version`, timestamps |
-| `moves` | `id`, `game_id`, `ply` (order), `move_number` (as in notation), `color`, `from_square`, `to_square`, `promotion`, `san`, `fen` (after the move) |
+| `moves` | `id`, `game_id`, `ply` (order), `move_number` (as in notation), `color`, `from_square`, `to_square`, `promotion`, `san`, `fen` (after the move), `engine_context` (JSON, computer moves only) |
 
 ## Frontend
 
@@ -106,5 +106,6 @@ SQLite at `data/chess.db`, accessed through Spring Data JPA with Hibernate's com
 | `features/game/` | Page: header, level selector, board, game info, move history |
 | `features/chess-board/` | Board rendering and move selection from backend-supplied legal moves |
 | `features/ai-chat/` | *Explain position* and *Ask AI* panel |
+| `features/ai-context/` | Debug panel: Stockfish input/output of the last computer move and the last Laya trace |
 
 Components never call `HttpClient` directly. Styling uses Tailwind utility classes.

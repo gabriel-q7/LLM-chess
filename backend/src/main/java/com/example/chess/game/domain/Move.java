@@ -56,11 +56,15 @@ public class Move {
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
+    /** JSON of the engine's input and output, for computer moves only. */
+    @Column(name = "engine_context")
+    private String engineContext;
+
     protected Move() {
     }
 
     public Move(UUID id, UUID gameId, int ply, int moveNumber, Color color, ChessMove move, String san,
-                String fen, LocalDateTime createdAt) {
+                String fen, String engineContext, LocalDateTime createdAt) {
         this.id = id;
         this.gameId = gameId;
         this.ply = ply;
@@ -71,6 +75,7 @@ public class Move {
         this.promotion = move.promotion();
         this.san = san;
         this.fen = fen;
+        this.engineContext = engineContext;
         this.createdAt = createdAt;
     }
 
@@ -116,6 +121,10 @@ public class Move {
 
     public String getFen() {
         return fen;
+    }
+
+    public String getEngineContext() {
+        return engineContext;
     }
 
     public LocalDateTime getCreatedAt() {

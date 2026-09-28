@@ -31,6 +31,13 @@ describe('AiService', () => {
 
     const request = http.expectOne('/api/games/game-1/chat');
     expect(request.request.body).toEqual({ question: 'Why?' });
-    request.flush({ answer: 'Because.' });
+    request.flush({
+      answer: 'Because.',
+      trace: { disclosure: {} as never, hiddenFacts: ['FEN'], exchanges: [] },
+    });
+
+    expect(service.lastTrace()).toEqual(
+      expect.objectContaining({ gameId: 'game-1', source: 'chat', question: 'Why?' }),
+    );
   });
 });

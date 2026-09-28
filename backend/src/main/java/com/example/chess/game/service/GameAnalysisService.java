@@ -1,6 +1,8 @@
 package com.example.chess.game.service;
 
+import com.example.chess.ai.AiReply;
 import com.example.chess.ai.AiService;
+import com.example.chess.ai.AiTrace;
 import com.example.chess.ai.Disclosure;
 import com.example.chess.ai.PositionContext;
 import com.example.chess.chess.ChessService;
@@ -50,13 +52,13 @@ public class GameAnalysisService {
                 game.getDifficulty().disclosure());
     }
 
-    private PositionAnalysis disclosed(PositionContext context, String text) {
+    private PositionAnalysis disclosed(PositionContext context, AiReply reply) {
         Disclosure disclosure = context.disclosure();
         EngineAnalysis analysis = context.analysis();
         String bestMove = disclosure.bestMove() ? bestMoveSan(context.fen(), analysis) : null;
         return disclosure.numericEvaluation()
-                ? new PositionAnalysis(bestMove, analysis.evaluation(), analysis.mateIn(), analysis.depth(), text)
-                : new PositionAnalysis(bestMove, null, null, analysis.depth(), text);
+                ? new PositionAnalysis(bestMove, analysis.evaluation(), analysis.mateIn(), analysis.depth(), reply.text(), reply.trace())
+                : new PositionAnalysis(bestMove, null, null, analysis.depth(), reply.text(), reply.trace());
     }
 
     private String bestMoveSan(String fen, EngineAnalysis analysis) {
@@ -74,7 +76,9 @@ public class GameAnalysisService {
      * @param evaluation  pawns from White's point of view
      * @param mateIn      moves to forced mate (positive: White mates)
      * @param text        the AI's explanation or answer
+     * @param trace       what the AI received and decided (disclosed facts only)
      */
-    public record PositionAnalysis(String bestMoveSan, Double evaluation, Integer mateIn, int depth, String text) {
+    public record PositionAnalysis(String bestMoveSan, Double evaluation, Integer mateIn, int depth, String text,
+                                   AiTrace trace) {
     }
 }

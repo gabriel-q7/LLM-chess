@@ -54,7 +54,7 @@ public class StockfishClient {
                 } else if (line.startsWith("bestmove")) {
                     result.acceptBestMove(line);
                     session.send("quit");
-                    return result.build();
+                    return result.build(session.sent());
                 }
             }
             throw new EngineUnavailableException("Engine closed the connection before returning a move");
@@ -82,6 +82,7 @@ public class StockfishClient {
         private final BufferedReader reader;
         private final BufferedWriter writer;
         private final Closer closer;
+        private final List<String> sent = new ArrayList<>();
 
         Session(InputStream in, OutputStream out, Closer closer) {
             this.reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.US_ASCII));
@@ -90,9 +91,14 @@ public class StockfishClient {
         }
 
         void send(String command) throws IOException {
+            sent.add(command);
             writer.write(command);
             writer.write('\n');
             writer.flush();
+        }
+
+        List<String> sent() {
+            return List.copyOf(sent);
         }
 
         String readLine() throws IOException {
@@ -128,8 +134,16 @@ public class StockfishClient {
      * @param scoreCp      centipawn score from the side to move's view, or {@code null} for mate scores
      * @param mateIn       moves to mate from the side to move's view, or {@code null}
      * @param pv           principal variation in UCI notation
+     * @param commands     UCI commands sent to the engine, in order
+     * @param finalInfo    the last {@code info} line the result was taken from
+     * @param bestMoveLine the engine's {@code bestmove} line
      */
-    public record UciResult(String bestMove, int depth, Integer scoreCp, Integer mateIn, List<String> pv) {
+    public record UciResult(String bestMove, int depth, Integer scoreCp, Integer mateIn, List<String> pv,
+                            List<String> commands, String finalInfo, String bestMoveLine) {
+
+        public UciResult(String bestMove, int depth, Integer scoreCp, Integer mateIn, List<String> pv) {
+            this(bestMove, depth, scoreCp, mateIn, pv, List.of(), null, null);
+        }
 
         static final class Builder {
             private String bestMove;
@@ -137,6 +151,8 @@ public class StockfishClient {
             private Integer scoreCp;
             private Integer mateIn;
             private List<String> pv = List.of();
+            private String finalInfo;
+            private String bestMoveLine;
 
             void acceptInfo(String line) {
                 String[] tokens = line.trim().split("\\s+");
@@ -181,6 +197,7 @@ public class StockfishClient {
                 }
                 scoreCp = cp;
                 mateIn = mate;
+                finalInfo = line.trim();
                 if (!linePv.isEmpty()) {
                     pv = List.copyOf(linePv);
                 }
@@ -189,10 +206,15 @@ public class StockfishClient {
             void acceptBestMove(String line) {
                 String[] tokens = line.trim().split("\\s+");
                 bestMove = tokens.length > 1 && !tokens[1].equals("(none)") ? tokens[1] : null;
+                bestMoveLine = line.trim();
             }
 
             UciResult build() {
-                return new UciResult(bestMove, depth, scoreCp, mateIn, pv);
+                return build(List.of());
+            }
+
+            UciResult build(List<String> commands) {
+                return new UciResult(bestMove, depth, scoreCp, mateIn, pv, commands, finalInfo, bestMoveLine);
             }
         }
     }

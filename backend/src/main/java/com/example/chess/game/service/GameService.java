@@ -10,6 +10,7 @@ import com.example.chess.chess.PositionOutcome;
 import com.example.chess.common.ApiException;
 import com.example.chess.common.ErrorCode;
 import com.example.chess.engine.ChessEngine;
+import com.example.chess.engine.EngineMove;
 import com.example.chess.engine.EngineUnavailableException;
 import com.example.chess.game.domain.Difficulty;
 import com.example.chess.game.domain.Game;
@@ -19,11 +20,13 @@ import com.example.chess.game.repository.GameRepository;
 import com.example.chess.game.repository.MoveRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -40,24 +43,26 @@ public class GameService {
     private final ChessEngine engine;
     private final TransactionTemplate transaction;
     private final Clock clock;
+    private final JsonMapper json;
 
     public GameService(GameRepository gameRepository, MoveRepository moveRepository, ChessService chessService,
-                       ChessEngine engine, TransactionTemplate transaction, Clock clock) {
+                       ChessEngine engine, TransactionTemplate transaction, Clock clock, JsonMapper json) {
         this.gameRepository = gameRepository;
         this.moveRepository = moveRepository;
         this.chessService = chessService;
         this.engine = engine;
         this.transaction = transaction;
         this.clock = clock;
+        this.json = json;
     }
 
     public GameState createGame(Color playerColor, Difficulty difficulty) {
         LocalDateTime now = LocalDateTime.now(clock);
         Game game = new Game(UUID.randomUUID(), ChessService.STANDARD_START_FEN, playerColor, difficulty, now);
         ChessPosition start = chessService.position(game.getInitialFen(), List.of());
-        List<AppliedMove> applied = new ArrayList<>();
+        List<NewMove> applied = new ArrayList<>();
         if (start.turn() == game.getComputerColor()) {
-            applied.add(computerMove(game, List.of(), start));
+            applied.add(computerMove(game, List.of(), start, 1));
         }
         return persist(game, List.of(), applied, start);
     }
@@ -79,37 +84,53 @@ public class GameService {
         }
 
         List<ChessMove> history = history(state.moves());
-        List<AppliedMove> applied = new ArrayList<>();
+        List<NewMove> applied = new ArrayList<>();
         AppliedMove playerMove = chessService.applyMove(game.getInitialFen(), history, move);
-        applied.add(playerMove);
+        applied.add(new NewMove(playerMove, null));
 
         if (!playerMove.position().outcome().isFinished()) {
             List<ChessMove> afterPlayer = new ArrayList<>(history);
             afterPlayer.add(playerMove.move());
-            applied.add(computerMove(game, afterPlayer, playerMove.position()));
+            applied.add(computerMove(game, afterPlayer, playerMove.position(), history.size() + 2));
         }
         return persist(game, state.moves(), applied, state.position());
     }
 
-    private AppliedMove computerMove(Game game, List<ChessMove> history, ChessPosition position) {
-        String uci = engine.getBestMove(position.fen(), game.getDifficulty().strength());
-        try {
-            return chessService.applyMove(game.getInitialFen(), history, ChessMove.fromUci(uci));
-        } catch (IllegalArgumentException | IllegalMoveException e) {
-            throw new EngineUnavailableException("Engine proposed an illegal move: " + uci, e);
-        }
+    /** The engine's input and output for the game's latest computer move, if any. */
+    public Optional<ComputerMoveContext> lastComputerMoveContext(UUID id) {
+        findGame(id);
+        return moveRepository.findFirstByGameIdAndEngineContextIsNotNullOrderByPlyDesc(id)
+                .map(move -> json.readValue(move.getEngineContext(), ComputerMoveContext.class));
     }
 
-    private GameState persist(Game game, List<Move> existing, List<AppliedMove> applied, ChessPosition current) {
+    private NewMove computerMove(Game game, List<ChessMove> history, ChessPosition position, int ply) {
+        EngineMove engineMove = engine.getBestMove(position.fen(), game.getDifficulty().strength());
+        AppliedMove applied;
+        try {
+            applied = chessService.applyMove(game.getInitialFen(), history, ChessMove.fromUci(engineMove.move()));
+        } catch (IllegalArgumentException | IllegalMoveException e) {
+            throw new EngineUnavailableException("Engine proposed an illegal move: " + engineMove.move(), e);
+        }
+        ComputerMoveContext context = new ComputerMoveContext(ply, applied.san(), position.fen(), game.getDifficulty(),
+                engineMove, chessService.toSanLine(position.fen(), engineMove.principalVariation()));
+        return new NewMove(applied, json.writeValueAsString(context));
+    }
+
+    /** A move about to be stored; {@code engineContext} is set for computer moves. */
+    private record NewMove(AppliedMove applied, String engineContext) {
+    }
+
+    private GameState persist(Game game, List<Move> existing, List<NewMove> applied, ChessPosition current) {
         LocalDateTime now = LocalDateTime.now(clock);
         List<Move> newMoves = new ArrayList<>();
         int ply = existing.size();
-        for (AppliedMove move : applied) {
+        for (NewMove newMove : applied) {
             ply++;
+            AppliedMove move = newMove.applied();
             newMoves.add(new Move(UUID.randomUUID(), game.getId(), ply, move.moveNumber(), move.color(),
-                    move.move(), move.san(), move.position().fen(), now));
+                    move.move(), move.san(), move.position().fen(), newMove.engineContext(), now));
         }
-        ChessPosition finalPosition = applied.isEmpty() ? current : applied.getLast().position();
+        ChessPosition finalPosition = applied.isEmpty() ? current : applied.getLast().applied().position();
         game.updatePosition(finalPosition.fen(), toStatus(finalPosition.outcome()), now);
 
         Game saved = transaction.execute(tx -> {

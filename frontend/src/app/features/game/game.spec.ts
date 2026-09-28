@@ -90,6 +90,21 @@ describe('Game', () => {
     expect(element.querySelector('[data-testid="error"]')?.textContent).toContain('That move is not legal.');
   });
 
+  it('toggles the AI context panel', async () => {
+    click('[data-testid="new-white"]');
+    http.expectOne('/api/games').flush(gameFixture());
+    await fixture.whenStable();
+    expect(element.querySelector('[data-testid="context-panel"]')).toBeNull();
+
+    click('[data-testid="toggle-context"]');
+    await fixture.whenStable();
+    http.expectOne('/api/games/game-1/engine-context').flush(null, { status: 204, statusText: 'No Content' });
+    await fixture.whenStable();
+
+    expect(element.querySelector('[data-testid="context-panel"]')).not.toBeNull();
+    expect(localStorage.getItem('chess-ai.showContext')).toBe('true');
+  });
+
   it('reports checkmate', async () => {
     click('[data-testid="new-white"]');
     http.expectOne('/api/games').flush(gameFixture({ status: 'CHECKMATE', winner: 'BLACK', check: true, legalMoves: [] }));

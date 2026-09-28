@@ -1,10 +1,24 @@
-<div class="mx-auto flex min-h-dvh max-w-6xl flex-col px-4 py-6">
+<div class="mx-auto flex min-h-dvh flex-col px-4 py-6" [class]="showContext() ? 'max-w-[96rem]' : 'max-w-6xl'">
   <header class="mb-6 flex items-center justify-between gap-4">
     <h1 class="text-2xl font-bold tracking-tight whitespace-nowrap">
       <span aria-hidden="true">♞</span>
       AI Chess
     </h1>
     <div class="flex flex-wrap items-center justify-end gap-2">
+      <button
+        type="button"
+        class="rounded-md border px-3 py-1.5 text-sm font-medium shadow-sm"
+        [class]="
+          showContext()
+            ? 'border-amber-500 bg-amber-100 text-amber-900 dark:bg-amber-900/60 dark:text-amber-100'
+            : 'border-neutral-300 bg-white hover:bg-neutral-50 dark:border-neutral-600 dark:bg-neutral-800 dark:hover:bg-neutral-700'
+        "
+        [attr.aria-pressed]="showContext()"
+        (click)="toggleContext()"
+        data-testid="toggle-context"
+      >
+        AI context
+      </button>
       <div class="inline-flex rounded-md shadow-sm" role="radiogroup" aria-label="Difficulty">
         @for (level of difficulties; track level; let first = $first; let last = $last) {
           <button
@@ -54,7 +68,23 @@
     </p>
   }
 
-  <main class="grid flex-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+  <main
+    class="grid flex-1 items-start gap-6"
+    [class]="showContext() ? 'lg:grid-cols-[minmax(0,1fr)_22rem] xl:grid-cols-[24rem_minmax(0,1fr)_22rem]' : 'lg:grid-cols-[minmax(0,1fr)_22rem]'"
+  >
+    @if (showContext()) {
+      <aside
+        class="order-last max-h-[calc(100dvh-8rem)] overflow-y-auto rounded-xl bg-white p-4 shadow-sm ring-1 ring-neutral-200 xl:order-first dark:bg-neutral-900 dark:ring-neutral-800"
+        aria-label="AI context"
+        data-testid="context-panel"
+      >
+        @if (game(); as g) {
+          <app-ai-context [gameId]="g.id" [ply]="g.moves.length" />
+        } @else {
+          <p class="text-sm text-neutral-500 dark:text-neutral-400">Start a game to see what the AI receives.</p>
+        }
+      </aside>
+    }
     <div class="mx-auto w-full max-w-[min(100%,calc(100dvh-10rem))]">
       @if (game(); as g) {
         <app-chess-board

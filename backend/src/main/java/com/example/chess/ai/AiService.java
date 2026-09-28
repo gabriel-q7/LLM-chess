@@ -6,7 +6,7 @@ package com.example.chess.ai;
  */
 public interface AiService {
 
-    String explainPosition(PositionContext context);
+    AiReply explainPosition(PositionContext context);
 
-    String answerQuestion(String question, PositionContext context);
+    AiReply answerQuestion(String question, PositionContext context);
 }

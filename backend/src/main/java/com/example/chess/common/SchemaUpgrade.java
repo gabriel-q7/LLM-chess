@@ -28,6 +28,7 @@ public class SchemaUpgrade implements InitializingBean {
     @Override
     public void afterPropertiesSet() {
         addColumnIfMissing("games", "difficulty", "VARCHAR(10) NOT NULL DEFAULT 'MEDIUM'");
+        addColumnIfMissing("moves", "engine_context", "TEXT");
     }
 
     private void addColumnIfMissing(String table, String column, String definition) {

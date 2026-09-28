@@ -6,6 +6,7 @@ import { Move, MoveRequest } from '../../core/models/move.model';
 import { GameService } from '../../core/services/game.service';
 import { userMessage } from '../../core/services/error-message';
 import { AiChat } from '../ai-chat/ai-chat';
+import { AiContext } from '../ai-context/ai-context';
 import { ChessBoard } from '../chess-board/chess-board';
 
 interface MovePair {
@@ -16,7 +17,7 @@ interface MovePair {
 
 @Component({
   selector: 'app-game',
-  imports: [ChessBoard, AiChat],
+  imports: [ChessBoard, AiChat, AiContext],
   templateUrl: './game.html',
   styleUrl: './game.css',
 })
@@ -28,6 +29,8 @@ export class Game implements OnInit {
   protected readonly difficulty = signal<Difficulty>('MEDIUM');
   protected readonly difficulties: Difficulty[] = ['EASY', 'MEDIUM', 'HARD'];
   protected readonly difficultyLabels = DIFFICULTY_LABELS;
+  /** Debug panel left of the board with what Stockfish and Laya received. */
+  protected readonly showContext = signal(readShowContext());
 
   protected readonly lastMove = computed(() => this.game()?.moves.at(-1) ?? null);
 
@@ -54,6 +57,16 @@ export class Game implements OnInit {
     }
   }
 
+  protected toggleContext(): void {
+    const show = !this.showContext();
+    this.showContext.set(show);
+    try {
+      localStorage.setItem(SHOW_CONTEXT_KEY, String(show));
+    } catch {
+      // Remembering the toggle is a convenience; ignore storage failures.
+    }
+  }
+
   protected newGame(color: Color): void {
     this.run(this.games.createGame(color, this.difficulty()));
   }
@@ -70,6 +83,16 @@ export class Game implements OnInit {
         onError?.();
       },
     });
+  }
+}
+
+const SHOW_CONTEXT_KEY = 'chess-ai.showContext';
+
+function readShowContext(): boolean {
+  try {
+    return localStorage.getItem(SHOW_CONTEXT_KEY) === 'true';
+  } catch {
+    return false;
   }
 }
 

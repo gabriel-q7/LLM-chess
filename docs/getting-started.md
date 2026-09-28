@@ -107,5 +107,7 @@ Stockfish and Laya still run in containers; the backend and frontend run on your
 3. The computer replies automatically.
 4. **Explain position** asks for an AI explanation of the current position.
 5. **Ask AI** accepts free-text questions ("Who is winning?", "What should I play?").
+6. **AI context** (header) toggles a debug panel with exactly what Stockfish and Laya received. See
+   [Difficulty levels](difficulty-levels.md#debug-panel).
 
 The browser remembers the current game and reloads it after a page refresh.

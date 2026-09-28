@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS moves (
     promotion    VARCHAR(1),
     san          VARCHAR(10)  NOT NULL,
     fen          VARCHAR(100) NOT NULL,
+    engine_context TEXT,
     created_at   TIMESTAMP    NOT NULL,
     UNIQUE (game_id, ply)
 );

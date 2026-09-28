@@ -54,7 +54,7 @@ class LayaAiServiceTest {
     void easyExplainsBestMoveScoreAndLine() {
         when(client.decide(any())).thenReturn(answers("other", 0.1, "development", 0.8));
 
-        String text = service.explainPosition(context(Disclosure.FULL));
+        String text = service.explainPosition(context(Disclosure.FULL)).text();
 
         assertThat(text)
                 .contains("After Nf3, Black is slightly better (-0.35 at depth 18)")
@@ -69,8 +69,8 @@ class LayaAiServiceTest {
     void mediumGivesPieceHintButNeverTheMoveOrScore() {
         when(client.decide(any())).thenReturn(answers("best_move", 0.9, "development", 0.2));
 
-        String explanation = service.explainPosition(context(Disclosure.HINTS));
-        String answer = service.answerQuestion("What should I play?", context(Disclosure.HINTS));
+        String explanation = service.explainPosition(context(Disclosure.HINTS)).text();
+        String answer = service.answerQuestion("What should I play?", context(Disclosure.HINTS)).text();
 
         assertThat(explanation).contains("Black is slightly better").contains("Hint: consider a move with your knight.");
         assertThat(answer).isEqualTo("Hint: consider a move with your knight.");
@@ -85,8 +85,8 @@ class LayaAiServiceTest {
     void hardRevealsNoMoveHintOrScore() {
         when(client.decide(any())).thenReturn(answers("best_move", 0.9, "development", 0.2));
 
-        String explanation = service.explainPosition(context(Disclosure.MINIMAL));
-        String answer = service.answerQuestion("What should I play?", context(Disclosure.MINIMAL));
+        String explanation = service.explainPosition(context(Disclosure.MINIMAL)).text();
+        String answer = service.answerQuestion("What should I play?", context(Disclosure.MINIMAL)).text();
 
         assertThat(explanation).contains("Black is slightly better").doesNotContain("Hint", "knight");
         assertThat(answer).isEqualTo(ExplanationComposer.NO_HINTS);
@@ -101,11 +101,11 @@ class LayaAiServiceTest {
     void playerMateIsDisclosedAccordingToLevel() {
         when(client.decide(any())).thenReturn(answers("threats", 0.9, "attack", 0.2));
 
-        assertThat(service.answerQuestion("threats?", new PositionContext(MATE_FEN, "Nf6", MATE, Color.WHITE, Disclosure.FULL)))
+        assertThat(service.answerQuestion("threats?", new PositionContext(MATE_FEN, "Nf6", MATE, Color.WHITE, Disclosure.FULL)).text())
                 .contains("You have a forced mate in 1.").contains("Qxf7#");
-        assertThat(service.answerQuestion("threats?", new PositionContext(MATE_FEN, "Nf6", MATE, Color.WHITE, Disclosure.HINTS)))
+        assertThat(service.answerQuestion("threats?", new PositionContext(MATE_FEN, "Nf6", MATE, Color.WHITE, Disclosure.HINTS)).text())
                 .contains("You have a forced mate: look for it!").doesNotContain("Qxf7", "in 1");
-        assertThat(service.answerQuestion("threats?", new PositionContext(MATE_FEN, "Nf6", MATE, Color.WHITE, Disclosure.MINIMAL)))
+        assertThat(service.answerQuestion("threats?", new PositionContext(MATE_FEN, "Nf6", MATE, Color.WHITE, Disclosure.MINIMAL)).text())
                 .isEqualTo("There is no check or forced mate against you right now.");
     }
 
@@ -113,7 +113,7 @@ class LayaAiServiceTest {
     void mateAgainstThePlayerIsAlwaysReported() {
         when(client.decide(any())).thenReturn(answers("threats", 0.9, "attack", 0.2));
         // Same position, but the human plays Black and is about to be mated.
-        assertThat(service.answerQuestion("am I in danger?", new PositionContext(MATE_FEN, "Nf6", MATE, Color.BLACK, Disclosure.MINIMAL)))
+        assertThat(service.answerQuestion("am I in danger?", new PositionContext(MATE_FEN, "Nf6", MATE, Color.BLACK, Disclosure.MINIMAL)).text())
                 .contains("Your opponent threatens a forced mate in 1.")
                 .doesNotContain("Qxf7");
     }
@@ -123,17 +123,36 @@ class LayaAiServiceTest {
         when(client.decide(any())).thenReturn(answers("other", 0.1, "development", 0.1));
         EngineAnalysis equal = new EngineAnalysis("b8c6", 0.1, 18, null, List.of("b8c6"));
 
-        assertThat(service.explainPosition(new PositionContext(FEN, "Nf3", equal, Color.BLACK, Disclosure.FULL)))
+        assertThat(service.explainPosition(new PositionContext(FEN, "Nf3", equal, Color.BLACK, Disclosure.FULL)).text())
                 .startsWith("After Nf3, the position is roughly equal (+0.10");
-        assertThat(service.explainPosition(new PositionContext(FEN, null, equal, Color.BLACK, Disclosure.FULL)))
+        assertThat(service.explainPosition(new PositionContext(FEN, null, equal, Color.BLACK, Disclosure.FULL)).text())
                 .startsWith("The position is roughly equal (+0.10");
+    }
+
+    @Test
+    void traceShowsEveryLayaExchangeAndWhatWasHidden() {
+        when(client.decide(any())).thenReturn(answers("best_move", 0.9, "endgame", 0.3));
+
+        AiTrace trace = service.answerQuestion("What should I play?", context(Disclosure.MINIMAL)).trace();
+
+        assertThat(trace.disclosure()).isEqualTo(Disclosure.MINIMAL);
+        assertThat(trace.hiddenFacts()).contains("best move", "engine continuation", "numeric evaluation and depth", "FEN");
+        assertThat(trace.exchanges()).hasSize(2);
+        AiTrace.Exchange intent = trace.exchanges().get(0);
+        assertThat(intent.state()).isEqualTo("A chess player asks: What should I play?");
+        assertThat(intent.decisions().get(PromptBuilder.INTENT)).isEqualTo(
+                new AiTrace.Decision("best_move", 0.9, true, Map.of("best_move", 0.9)));
+        AiTrace.Exchange position = trace.exchanges().get(1);
+        assertThat(position.state()).contains("Assessment: Black is slightly better").doesNotContain("Nc6");
+        assertThat(position.questions()).containsOnlyKeys(PromptBuilder.FOCUS);
+        assertThat(position.decisions().get(PromptBuilder.FOCUS).used()).isFalse();
     }
 
     @Test
     void lowConfidenceThemeIsLeftOut() {
         when(client.decide(any())).thenReturn(answers("other", 0.1, "endgame", 0.3));
 
-        assertThat(service.explainPosition(context(Disclosure.FULL))).doesNotContain("key theme");
+        assertThat(service.explainPosition(context(Disclosure.FULL)).text()).doesNotContain("key theme");
     }
 
     @Test
@@ -141,7 +160,7 @@ class LayaAiServiceTest {
         when(client.decide(any())).thenReturn(answers("best_move", 0.9, "development", 0.2));
         ArgumentCaptor<LayaModels.Request> request = ArgumentCaptor.forClass(LayaModels.Request.class);
 
-        service.answerQuestion("What should I play?", context(Disclosure.FULL));
+        service.answerQuestion("What should I play?", context(Disclosure.FULL)).text();
 
         verify(client, times(2)).decide(request.capture());
         LayaModels.Request intent = request.getAllValues().get(0);
@@ -156,23 +175,23 @@ class LayaAiServiceTest {
     @Test
     void answersByIntent() {
         when(client.decide(any())).thenReturn(answers("evaluation", 0.9, "development", 0.2));
-        assertThat(service.answerQuestion("who is winning?", context(Disclosure.FULL)))
+        assertThat(service.answerQuestion("who is winning?", context(Disclosure.FULL)).text())
                 .isEqualTo("Black is slightly better (-0.35 at depth 18). Material: equal.");
 
         when(client.decide(any())).thenReturn(answers("last_move", 0.9, "development", 0.2));
-        assertThat(service.answerQuestion("why that move?", context(Disclosure.FULL)))
+        assertThat(service.answerQuestion("why that move?", context(Disclosure.FULL)).text())
                 .isEqualTo("Nf3 was the last move. After it, Black is slightly better (-0.35 at depth 18). "
                         + "The expected continuation is Nc6 Bb5 a6.");
 
         when(client.decide(any())).thenReturn(answers("other", 0.9, "development", 0.2));
-        assertThat(service.answerQuestion("what's the weather?", context(Disclosure.FULL))).startsWith("I can only talk about this game");
+        assertThat(service.answerQuestion("what's the weather?", context(Disclosure.FULL)).text()).startsWith("I can only talk about this game");
     }
 
     @Test
     void uncertainIntentFallsBackToSummary() {
         when(client.decide(any())).thenReturn(answers("plan", 0.3, "development", 0.2));
 
-        assertThat(service.answerQuestion("hmm", context(Disclosure.MINIMAL)))
+        assertThat(service.answerQuestion("hmm", context(Disclosure.MINIMAL)).text())
                 .isEqualTo("I'm not sure what you are asking. Black is slightly better.");
     }
 
@@ -182,7 +201,7 @@ class LayaAiServiceTest {
         String mated = "rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3";
 
         assertThat(service.answerQuestion("who wins?",
-                new PositionContext(mated, "Qh4#", new EngineAnalysis(null, -100, 0, 0, List.of()), Color.WHITE, Disclosure.MINIMAL)))
+                new PositionContext(mated, "Qh4#", new EngineAnalysis(null, -100, 0, 0, List.of()), Color.WHITE, Disclosure.MINIMAL)).text())
                 .isEqualTo("The game is over: White is checkmated.");
     }
 }

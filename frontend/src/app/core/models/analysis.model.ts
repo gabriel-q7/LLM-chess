@@ -1,3 +1,5 @@
+import { AiTrace } from './ai-context.model';
+
 /** Engine fields the game's difficulty hides are null. */
 export interface Analysis {
   bestMove: string | null;
@@ -7,6 +9,7 @@ export interface Analysis {
   /** Moves to forced mate; positive when White mates. */
   mateIn: number | null;
   explanation: string;
+  trace: AiTrace | null;
 }
 
 export interface ChatRequest {
@@ -15,6 +18,7 @@ export interface ChatRequest {
 
 export interface ChatResponse {
   answer: string;
+  trace: AiTrace | null;
 }
 
 export interface ApiError {

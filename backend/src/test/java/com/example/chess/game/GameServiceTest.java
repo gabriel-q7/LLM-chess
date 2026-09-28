@@ -1,5 +1,6 @@
 package com.example.chess.game;
 
+import com.example.chess.ai.AiReply;
 import com.example.chess.ai.AiService;
 import com.example.chess.ai.Disclosure;
 import com.example.chess.ai.PositionContext;
@@ -10,10 +11,13 @@ import com.example.chess.common.ApiException;
 import com.example.chess.common.ErrorCode;
 import com.example.chess.engine.ChessEngine;
 import com.example.chess.engine.EngineAnalysis;
+import com.example.chess.engine.EngineMove;
+import com.example.chess.engine.EngineStrength;
 import com.example.chess.engine.EngineUnavailableException;
 import com.example.chess.game.domain.Difficulty;
 import com.example.chess.game.domain.GameStatus;
 import com.example.chess.game.repository.MoveRepository;
+import com.example.chess.game.service.ComputerMoveContext;
 import com.example.chess.game.service.GameAnalysisService;
 import com.example.chess.game.service.GameService;
 import com.example.chess.game.service.GameState;
@@ -64,6 +68,28 @@ class GameServiceTest {
     @Autowired
     MoveRepository moveRepository;
 
+    private static EngineMove move(String uci) {
+        return new EngineMove(uci, new EngineStrength(8, 8), 8, 0.2, null, List.of(uci, "g1f3"),
+                List.of("uci", "go depth 8"), "info depth 8 score cp -20 pv " + uci + " g1f3", "bestmove " + uci);
+    }
+
+    @Test
+    void storesWhatTheEngineReceivedForComputerMoves() {
+        UUID id = gameService.createGame(Color.WHITE, Difficulty.MEDIUM).game().getId();
+        assertThat(gameService.lastComputerMoveContext(id)).isEmpty();
+        when(engine.getBestMove(anyString(), any())).thenReturn(move("e7e5"));
+
+        gameService.makeMove(id, new ChessMove("e2", "e4", null));
+
+        ComputerMoveContext context = gameService.lastComputerMoveContext(id).orElseThrow();
+        assertThat(context.ply()).isEqualTo(2);
+        assertThat(context.san()).isEqualTo("e5");
+        assertThat(context.fen()).startsWith("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b");
+        assertThat(context.difficulty()).isEqualTo(Difficulty.MEDIUM);
+        assertThat(context.engine().uciCommands()).containsExactly("uci", "go depth 8");
+        assertThat(context.principalVariationSan()).containsExactly("e5", "Nf3");
+    }
+
     @Test
     void createsGameWithPlayerToMove() {
         GameState state = gameService.createGame(Color.WHITE, Difficulty.MEDIUM);
@@ -77,7 +103,7 @@ class GameServiceTest {
 
     @Test
     void computerOpensWhenPlayerChoosesBlack() {
-        when(engine.getBestMove(anyString(), any())).thenReturn("e2e4");
+        when(engine.getBestMove(anyString(), any())).thenReturn(move("e2e4"));
 
         GameState state = gameService.createGame(Color.BLACK, Difficulty.MEDIUM);
 
@@ -106,7 +132,7 @@ class GameServiceTest {
     @Test
     void appliesLegalMoveAndComputerReplyAndPersistsBoth() {
         UUID id = gameService.createGame(Color.WHITE, Difficulty.MEDIUM).game().getId();
-        when(engine.getBestMove(anyString(), any())).thenReturn("e7e5");
+        when(engine.getBestMove(anyString(), any())).thenReturn(move("e7e5"));
 
         GameState state = gameService.makeMove(id, new ChessMove("e2", "e4", null));
 
@@ -141,7 +167,7 @@ class GameServiceTest {
     @Test
     void illegalEngineMoveIsReportedAsEngineFailure() {
         UUID id = gameService.createGame(Color.WHITE, Difficulty.MEDIUM).game().getId();
-        when(engine.getBestMove(anyString(), any())).thenReturn("e2e4");
+        when(engine.getBestMove(anyString(), any())).thenReturn(move("e2e4"));
 
         assertThatThrownBy(() -> gameService.makeMove(id, new ChessMove("d2", "d4", null)))
                 .isInstanceOf(EngineUnavailableException.class);
@@ -150,7 +176,7 @@ class GameServiceTest {
     @Test
     void checkmateFinishesGameAndRejectsFurtherMoves() {
         UUID id = gameService.createGame(Color.WHITE, Difficulty.MEDIUM).game().getId();
-        when(engine.getBestMove(anyString(), any())).thenReturn("e7e5", "d8h4");
+        when(engine.getBestMove(anyString(), any())).thenReturn(move("e7e5"), move("d8h4"));
 
         gameService.makeMove(id, new ChessMove("f2", "f3", null));
         GameState mated = gameService.makeMove(id, new ChessMove("g2", "g4", null));
@@ -167,7 +193,7 @@ class GameServiceTest {
     @Test
     void playerCheckmateSkipsComputerMove() {
         UUID id = gameService.createGame(Color.WHITE, Difficulty.MEDIUM).game().getId();
-        when(engine.getBestMove(anyString(), any())).thenReturn("f7f6", "g7g5");
+        when(engine.getBestMove(anyString(), any())).thenReturn(move("f7f6"), move("g7g5"));
 
         gameService.makeMove(id, new ChessMove("e2", "e4", null));
         gameService.makeMove(id, new ChessMove("d2", "d4", null));
@@ -180,7 +206,7 @@ class GameServiceTest {
     @Test
     void difficultyIsPersistedAndSetsComputerStrength() {
         UUID id = gameService.createGame(Color.WHITE, Difficulty.EASY).game().getId();
-        when(engine.getBestMove(anyString(), any())).thenReturn("e7e5");
+        when(engine.getBestMove(anyString(), any())).thenReturn(move("e7e5"));
 
         gameService.makeMove(id, new ChessMove("e2", "e4", null));
 
@@ -193,7 +219,7 @@ class GameServiceTest {
         UUID id = gameService.createGame(Color.WHITE, Difficulty.EASY).game().getId();
         EngineAnalysis engineAnalysis = new EngineAnalysis("e2e4", 0.3, 18, null, List.of("e2e4"));
         when(engine.analyze(anyString())).thenReturn(engineAnalysis);
-        when(aiService.explainPosition(any())).thenReturn("explained");
+        when(aiService.explainPosition(any())).thenReturn(new AiReply("explained", null));
 
         GameAnalysisService.PositionAnalysis analysis = analysisService.analyze(id);
 
@@ -208,7 +234,7 @@ class GameServiceTest {
     void hardAnalysisHidesBestMoveAndScore() {
         UUID id = gameService.createGame(Color.WHITE, Difficulty.HARD).game().getId();
         when(engine.analyze(anyString())).thenReturn(new EngineAnalysis("e2e4", 0.3, 18, null, List.of("e2e4")));
-        when(aiService.answerQuestion(anyString(), any())).thenReturn("answer");
+        when(aiService.answerQuestion(anyString(), any())).thenReturn(new AiReply("answer", null));
 
         GameAnalysisService.PositionAnalysis analysis = analysisService.answer(id, "hint?");
 

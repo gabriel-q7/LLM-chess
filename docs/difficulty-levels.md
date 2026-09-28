@@ -59,6 +59,19 @@ Assessment: White is slightly better
 `GameAnalysisService` applies the same rule to the REST response. The frontend hides the
 *Best move* and *Evaluation* tiles when those fields are `null`.
 
+## Debug panel
+
+The **AI context** button in the header opens a panel left of the board. It has two sections:
+
+- **Computer move · Stockfish:** the FEN sent, skill and depth, the move, evaluation, expected line
+  and the raw UCI exchange for the computer's last move.
+- **Assistant · Laya:** for the last *Explain position* or question, the facts the level withheld,
+  and each request's `state`, questions, answer probabilities, and whether each answer passed the
+  confidence threshold.
+
+The Stockfish section **ignores the level** (it shows the engine's evaluation and line), so it is
+off by default. The toggle is remembered in the browser.
+
 ## Existing games
 
 Databases created before levels existed get the column on start-up (`SchemaUpgrade`). Their games
