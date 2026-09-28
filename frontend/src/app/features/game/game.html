@@ -116,12 +116,33 @@
       <section aria-labelledby="history-heading" class="space-y-2">
         <h2 id="history-heading" class="text-sm font-semibold tracking-wide text-neutral-500 uppercase dark:text-neutral-400">Move History</h2>
         @if (movePairs().length) {
-          <ol class="grid max-h-48 grid-cols-[2.5rem_1fr_1fr] gap-x-2 gap-y-0.5 overflow-y-auto font-mono text-sm" data-testid="history">
+          <ol class="grid max-h-64 grid-cols-[2rem_1fr_1fr] gap-x-2 gap-y-1 overflow-y-auto text-sm" data-testid="history">
             @for (pair of movePairs(); track pair.number) {
               <li class="contents">
-                <span class="text-neutral-400">{{ pair.number }}.</span>
-                <span>{{ pair.white?.san ?? '…' }}</span>
-                <span>{{ pair.black?.san ?? '' }}</span>
+                <span class="self-center font-mono text-neutral-400">{{ pair.number }}.</span>
+                @for (move of [pair.white, pair.black]; track $index) {
+                  @if (move) {
+                    <span
+                      class="flex items-center gap-1.5 rounded px-1 py-0.5"
+                      [class]="move === lastMove() ? 'bg-yellow-100 dark:bg-yellow-900/40' : ''"
+                      [attr.title]="describeMove(move)"
+                      [attr.aria-label]="describeMove(move)"
+                      [attr.data-ply]="move.ply"
+                    >
+                      <span
+                        class="flex size-7 shrink-0 items-center justify-center rounded bg-amber-100 text-xl leading-none"
+                        [class]="move.color === 'WHITE' ? 'piece-white text-white' : 'text-neutral-900'"
+                        [attr.data-piece]="move.color + '-' + glyphType(move)"
+                        aria-hidden="true"
+                        >{{ glyph(move) }}</span
+                      >
+                      <span class="font-mono font-semibold">{{ move.san }}</span>
+                      <span class="font-mono text-xs text-neutral-500 dark:text-neutral-400" aria-hidden="true">{{ move.from }}→{{ move.to }}</span>
+                    </span>
+                  } @else {
+                    <span class="px-1.5 text-neutral-400">{{ $index === 0 ? '…' : '' }}</span>
+                  }
+                }
               </li>
             }
           </ol>
