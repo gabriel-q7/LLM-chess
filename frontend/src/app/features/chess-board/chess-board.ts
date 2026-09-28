@@ -1,10 +1,11 @@
 import { Component, computed, input, output, signal } from '@angular/core';
 import { Color } from '../../core/models/game.model';
 import { LegalMove, MoveRequest, PromotionPiece } from '../../core/models/move.model';
+import { PIECE_GLYPHS, PIECE_NAMES, PieceType } from '../../core/pieces';
 
 interface Piece {
   color: Color;
-  type: 'k' | 'q' | 'r' | 'b' | 'n' | 'p';
+  type: PieceType;
 }
 
 interface Square {
@@ -16,25 +17,6 @@ interface Square {
 }
 
 const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
-
-// Solid glyphs for both colours; U+FE0E asks for text rather than emoji rendering.
-const GLYPHS: Record<Piece['type'], string> = {
-  k: '♚︎',
-  q: '♛︎',
-  r: '♜︎',
-  b: '♝︎',
-  n: '♞︎',
-  p: '♟︎',
-};
-
-const NAMES: Record<Piece['type'], string> = {
-  k: 'king',
-  q: 'queen',
-  r: 'rook',
-  b: 'bishop',
-  n: 'knight',
-  p: 'pawn',
-};
 
 /** Reads piece placement from a FEN for display. Rules are never evaluated here. */
 export function parsePlacement(fen: string): Map<string, Piece> {
@@ -126,16 +108,16 @@ export class ChessBoard {
   }
 
   protected glyph(piece: Piece): string {
-    return GLYPHS[piece.type];
+    return PIECE_GLYPHS[piece.type];
   }
 
   protected promotionGlyph(piece: PromotionPiece): string {
-    return GLYPHS[piece];
+    return PIECE_GLYPHS[piece];
   }
 
   protected label(square: Square): string {
     return square.piece
-      ? `${square.name}, ${square.piece.color.toLowerCase()} ${NAMES[square.piece.type]}`
+      ? `${square.name}, ${square.piece.color.toLowerCase()} ${PIECE_NAMES[square.piece.type]}`
       : square.name;
   }
 

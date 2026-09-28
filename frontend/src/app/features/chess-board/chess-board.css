@@ -1,7 +1,0 @@
-/* Outline white glyphs so they stay readable on light squares. */
-.piece-white {
-  text-shadow:
-    0 0 1px #111,
-    0 0 1px #111,
-    0 1px 2px rgb(0 0 0 / 0.5);
-}

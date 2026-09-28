@@ -70,7 +70,10 @@ describe('Game', () => {
     );
     await fixture.whenStable();
 
-    expect(element.querySelector('[data-testid="history"]')?.textContent).toMatch(/1\.\s*e4\s*e5/);
+    const history = element.querySelector('[data-testid="history"]')!;
+    expect(history.textContent).toMatch(/1\.[\s\S]*e4[\s\S]*e2→e4[\s\S]*e5[\s\S]*e7→e5/);
+    expect(history.querySelector('[data-ply="1"]')?.getAttribute('title')).toBe('White pawn e2 → e4');
+    expect(history.querySelector('[data-ply="2"] [data-piece]')?.getAttribute('data-piece')).toBe('BLACK-p');
     expect(element.querySelector('[data-square="e5"] [data-piece]')?.getAttribute('data-piece')).toBe('BLACK-p');
   });
 

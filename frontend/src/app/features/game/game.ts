@@ -2,6 +2,7 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { Observable } from 'rxjs';
 import { Color, Difficulty, Game as GameModel } from '../../core/models/game.model';
 import { DIFFICULTY_LABELS } from '../../core/format';
+import { PIECE_GLYPHS, describeMove, movedPiece } from '../../core/pieces';
 import { Move, MoveRequest } from '../../core/models/move.model';
 import { GameService } from '../../core/services/game.service';
 import { userMessage } from '../../core/services/error-message';
@@ -31,6 +32,16 @@ export class Game implements OnInit {
   protected readonly difficultyLabels = DIFFICULTY_LABELS;
   /** Debug panel left of the board with what Stockfish and Laya received. */
   protected readonly showContext = signal(readShowContext());
+
+  protected glyph(move: Move): string {
+    return PIECE_GLYPHS[movedPiece(move.san)];
+  }
+
+  protected glyphType(move: Move): string {
+    return movedPiece(move.san);
+  }
+
+  protected readonly describeMove = describeMove;
 
   protected readonly lastMove = computed(() => this.game()?.moves.at(-1) ?? null);
 
